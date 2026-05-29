@@ -580,7 +580,7 @@ export const auth = createAuthStore();
 #### API Wrapper Update (`shared/utils/api.ts`)
 
 ```typescript
-export const API_BASE_URL = 'http://47.84.137.49:3001';
+export const API_BASE_URL = 'https://hermes.vinrul.my.id:3001';
 
 export async function apiFetch<T>(
     path: string,
@@ -661,7 +661,7 @@ When using cookies, CORS must be configured correctly:
 use tower_http::cors::{CorsLayer, AllowOrigin};
 
 let cors = CorsLayer::new()
-    .allow_origin(AllowOrigin::exact("http://47.84.137.49".parse().unwrap()))
+    .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
     .allow_credentials(true)
     .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
     .allow_headers([HeaderName::from_static("content-type")]);
