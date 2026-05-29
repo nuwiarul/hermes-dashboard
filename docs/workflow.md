@@ -48,13 +48,13 @@ Workflow development dengan manual deploy. Developer push code ke GitHub, Dodik 
 │     sudo systemctl restart hermes-dashboard                 │
 │                                                             │
 │  11. Verify                                                 │
-│     curl http://47.84.137.49                                │
-│     curl http://43.156.247.129:3001/api/health              │
+│     curl https://hermes.vinrul.my.id                                │
+│     curl https://api-hermes.vinrul.my.id/api/health              │
 │                                                             │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  DONE ✅                                                    │
-│  Dashboard updated di http://47.84.137.49                   │
+│  Dashboard updated di https://hermes.vinrul.my.id                   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -246,16 +246,16 @@ sudo systemctl status hermes-dashboard
 
 ```bash
 # Test backend health
-curl http://43.156.247.129:3001/api/health
+curl https://api-hermes.vinrul.my.id/api/health
 
 # Expected:
 # {"status":"ok","service":"hermes-dashboard","version":"0.1.0"}
 
 # Test frontend (dari browser)
-# Buka http://47.84.137.49
+# Buka https://hermes.vinrul.my.id
 
 # Test API melalui Nginx
-curl http://47.84.137.49/api/health
+curl https://hermes.vinrul.my.id/api/health
 
 # Expected:
 # {"status":"ok","service":"hermes-dashboard","version":"0.1.0"}
@@ -325,8 +325,8 @@ fi
 
 echo ""
 echo -e "${GREEN}🎉 Deployment complete!${NC}"
-echo "   Frontend: http://47.84.137.49"
-echo "   Backend:  http://43.156.247.129:3001"
+echo "   Frontend: https://hermes.vinrul.my.id"
+echo "   Backend:  https://api-hermes.vinrul.my.id"
 ```
 
 **Make executable:**
@@ -393,10 +393,10 @@ sudo systemctl restart hermes-dashboard
 
 ```bash
 # Backend health
-curl http://43.156.247.129:3001/api/health
+curl https://api-hermes.vinrul.my.id/api/health
 
 # Frontend (browser)
-http://47.84.137.49
+https://hermes.vinrul.my.id
 
 # Backend logs
 sudo journalctl -u hermes-dashboard -f
@@ -443,7 +443,7 @@ sudo systemctl restart nginx
 curl http://localhost:3001/api/health
 
 # Check Nginx proxy
-curl http://47.84.137.49/api/health
+curl https://hermes.vinrul.my.id/api/health
 ```
 
 ### Build fails
