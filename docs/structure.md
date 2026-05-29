@@ -1,128 +1,435 @@
 ## 📁 Project Structure
 
+### Overview
+
 ```
 hermes-dashboard/
 ├── README.md
 ├── docs/
-│   └── plan.md
+│   ├── plan.md
+│   └── structure.md
 ├── backend/
-│   ├── Cargo.toml
 │   └── src/
-│       ├── main.rs              # Entry point, router setup, AppState
-│       ├── config.rs            # AppConfig (hermes_home, port, paths)
-│       ├── db.rs                # SQLite connection pool
-│       ├── routes/
-│       │   ├── mod.rs           # Module declarations
-│       │   ├── health.rs        # GET /api/health — status check
-│       │   ├── sessions.rs      # GET /api/sessions — list sessions
-│       │   ├── stats.rs         # GET /api/stats — overview statistics
-│       │   ├── config.rs        # GET /api/config — read config.yaml
-│       │   ├── cron.rs          # GET /api/cron — list cron jobs
-│       │   └── ws.rs            # GET /ws — WebSocket real-time
-│       └── models/
-│           ├── mod.rs           # Module declarations
-│           └── session.rs       # Session, SessionSummary structs
-├── frontend/
-│   ├── package.json
-│   ├── svelte.config.js         # adapter-static config
-│   ├── vite.config.ts           # Dev proxy ke backend
-│   └── src/
-│       ├── app.html             # HTML template
-│       ├── app.css              # Tailwind CSS v4 import
-│       ├── routes/
-│       │   ├── +layout.svelte   # Main layout (Sidebar + Header)
-│       │   ├── +layout.ts       # SPA config (ssr=false, prerender=true)
-│       │   └── +page.svelte     # Dashboard home (stats cards)
+│       ├── main.rs
+│       ├── config.rs
+│       ├── db.rs
+│       ├── features/              # Feature-based modules
+│       │   ├── mod.rs
 │       │   ├── sessions/
-│       │   │   └── +page.svelte # Sessions list + search
+│       │   ├── stats/
+│       │   ├── config/
 │       │   ├── cron/
-│       │   │   └── +page.svelte # Cron jobs manager
+│       │   └── ws/
+│       └── shared/                # Shared utilities
+│           ├── mod.rs
+│           └── error.rs
+├── frontend/
+│   └── src/
+│       ├── app.html
+│       ├── app.css
+│       ├── routes/                # SvelteKit file-based routing
+│       │   ├── +layout.svelte
+│       │   ├── +layout.ts
+│       │   ├── +page.svelte       # Dashboard home
+│       │   ├── sessions/
+│       │   ├── cron/
 │       │   ├── tools/
-│       │   │   └── +page.svelte # Tools browser
 │       │   └── settings/
-│       │       └── +page.svelte # Settings page
 │       └── lib/
-│           ├── components/
-│           │   ├── Sidebar.svelte    # Navigation sidebar
-│           │   ├── Header.svelte     # Top bar (model, status)
-│           │   ├── StatsCard.svelte  # Stats card component
-│           │   └── SessionCard.svelte # Session list item
-│           ├── stores/
-│           │   └── status.ts         # WebSocket status store
-│           └── utils/
-│               └── api.ts            # Fetch helpers
+│           ├── features/          # Feature-based modules
+│           │   ├── dashboard/
+│           │   ├── sessions/
+│           │   ├── cron/
+│           │   ├── tools/
+│           │   └── settings/
+│           └── shared/            # Shared components & utilities
+│               ├── components/
+│               ├── stores/
+│               ├── types/
+│               └── utils/
 └── scripts/
-    ├── build.sh                 # Build backend + frontend
-    ├── deploy-frontend.sh       # SCP frontend ke Alibaba
-    ├── deploy-backend.sh        # Build & run backend
-    ├── hermes-dashboard.service # Systemd service file
+    ├── build.sh
+    ├── deploy-frontend.sh
+    ├── deploy-backend.sh
+    ├── hermes-dashboard.service
     └── nginx/
-        └── hermes-dashboard.conf # Nginx config untuk Alibaba
+        └── hermes-dashboard.conf
 ```
 
 ---
 
-## 📄 File Descriptions
+## 🔙 Backend Structure (Rust + Axum)
 
-### Backend (Rust + Axum)
+### Full Tree
 
-| File | Purpose | Lines Est. |
+```
+backend/
+├── Cargo.toml
+└── src/
+    ├── main.rs                    # Entry point, router, AppState
+    ├── config.rs                  # AppConfig (env vars, paths)
+    ├── db.rs                      # SQLite connection pool
+    │
+    ├── features/
+    │   ├── mod.rs                 # Re-exports all features
+    │   │
+    │   ├── sessions/              # Feature: Sessions
+    │   │   ├── mod.rs             # Module exports
+    │   │   ├── dto.rs             # SessionDto, SessionSummaryDto
+    │   │   ├── handler.rs         # list_sessions() handler
+    │   │   └── repository.rs      # query_sessions(), count_messages()
+    │   │
+    │   ├── stats/                 # Feature: Statistics
+    │   │   ├── mod.rs
+    │   │   ├── dto.rs             # StatsOverviewDto, SourceCountDto
+    │   │   ├── handler.rs         # get_stats() handler
+    │   │   └── repository.rs      # aggregate_sessions(), aggregate_messages()
+    │   │
+    │   ├── config/                # Feature: Config Reader
+    │   │   ├── mod.rs
+    │   │   ├── dto.rs             # ConfigInfoDto
+    │   │   ├── handler.rs         # get_config() handler
+    │   │   └── repository.rs      # read_config_yaml()
+    │   │
+    │   ├── cron/                  # Feature: Cron Jobs
+    │   │   ├── mod.rs
+    │   │   ├── dto.rs             # CronJobDto
+    │   │   ├── handler.rs         # list_jobs(), toggle_job()
+    │   │   └── repository.rs      # read_cron_jobs()
+    │   │
+    │   └── ws/                    # Feature: WebSocket
+    │       ├── mod.rs
+    │       ├── dto.rs             # WsMessage, StatusUpdate
+    │       ├── handler.rs         # ws_handler(), handle_socket()
+    │       └── repository.rs      # get_current_status()
+    │
+    └── shared/
+        ├── mod.rs                 # Re-exports
+        └── error.rs               # AppError, error responses
+```
+
+### File Details
+
+#### Entry Point
+
+| File | Purpose | Est. Lines |
 |------|---------|------------|
-| `Cargo.toml` | Dependencies: axum 0.8, sqlx 0.9, tokio, serde, tower-http | ~20 |
-| `main.rs` | Entry point. Init tracing, config, db pool. Setup routes + CORS. Start server on :3001 | ~50 |
-| `config.rs` | AppConfig struct. Reads HERMES_HOME, PORT from env. Helper methods: state_db_path(), config_path(), logs_path() | ~40 |
-| `db.rs` | connect() function. Opens SQLite in read-only mode. Returns SqlitePool | ~15 |
-| `routes/health.rs` | Simple health check. Returns {"status":"ok","service":"hermes-dashboard"} | ~15 |
-| `routes/sessions.rs` | Query sessions table. JOIN with message count. Returns SessionSummary (sessions + total) | ~40 |
-| `routes/stats.rs` | Aggregate queries: total_sessions, total_messages, sessions_today, messages_today, active_sources | ~60 |
-| `routes/config.rs` | Read config.yaml. Parse model/provider with simple string extraction. Return ConfigInfo + raw_yaml | ~40 |
-| `routes/cron.rs` | Placeholder for cron jobs. Will parse Hermes cron storage later | ~30 |
-| `routes/ws.rs` | WebSocket handler. Send initial status. Keep connection alive. Broadcast updates | ~50 |
-| `models/session.rs` | Session struct (sqlx::FromRow). SessionSummary struct. Fields: session_id, title, source, created_at, updated_at, message_count | ~25 |
+| `main.rs` | Init tracing, config, db. Build router with all feature routes. Start Axum server on :3001 | ~60 |
+| `config.rs` | AppConfig struct with `from_env()`. Methods: `state_db_path()`, `config_path()`, `logs_path()` | ~40 |
+| `db.rs` | `connect(path) -> SqlitePool`. Opens SQLite in read-only mode | ~15 |
 
-### Frontend (SvelteKit 2 + Svelte 5 + Tailwind CSS 4)
+#### Features
 
-| File | Purpose | Lines Est. |
-|------|---------|------------|
-| `svelte.config.js` | adapter-static with SPA fallback (index.html) | ~20 |
-| `vite.config.ts` | Dev proxy: /api → localhost:3001 | ~15 |
-| `app.css` | Tailwind CSS v4 import (@import "tailwindcss") | ~5 |
-| `+layout.ts` | SPA mode: ssr=false, prerender=true | ~5 |
-| `+layout.svelte` | Flex layout: Sidebar (264px) + Header + main content slot | ~25 |
-| `+page.svelte` | Dashboard home. Fetch /api/stats. Render 4x StatsCard grid | ~60 |
-| `sessions/+page.svelte` | Sessions list. Fetch /api/sessions. Search filter. Render SessionCard list | ~70 |
-| `cron/+page.svelte` | Cron jobs list. Fetch /api/cron. Enable/disable toggle | ~50 |
-| `tools/+page.svelte` | Tools browser. Show installed tools + status | ~50 |
-| `settings/+page.svelte` | Settings. Show current config. Edit model/provider | ~60 |
-| `Sidebar.svelte` | Navigation links: Dashboard, Sessions, Cron, Tools, Settings. Active state highlight | ~35 |
-| `Header.svelte` | Show current model + online/offline status dot | ~25 |
-| `StatsCard.svelte` | Card with icon, title, value, trend indicator | ~25 |
-| `SessionCard.svelte` | Session item: title, source, message count, date | ~30 |
-| `stores/status.ts` | WebSocket store. Auto-reconnect on close. Writable store for status | ~40 |
-| `utils/api.ts` | Fetch wrapper with error handling. Base URL config | ~20 |
+**sessions/**
 
-### Scripts
+| File | Purpose | Exports |
+|------|---------|---------|
+| `dto.rs` | `SessionDto { session_id, title, source, created_at, updated_at, message_count }`, `SessionSummaryDto { sessions: Vec<SessionDto>, total: i64 }` | DTOs with `#[derive(Serialize, Deserialize)]` |
+| `handler.rs` | `async fn list(Extension(state)) -> Json<SessionSummaryDto>` | Axum handler |
+| `repository.rs` | `async fn find_all(db, limit) -> Vec<Session>`, `async fn count_messages(db, session_id) -> i64` | DB queries |
+
+**stats/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `dto.rs` | `StatsOverviewDto { total_sessions, total_messages, sessions_today, messages_today, active_sources }`, `SourceCountDto { source, count }` | DTOs |
+| `handler.rs` | `async fn overview(Extension(state)) -> Json<StatsOverviewDto>` | Handler |
+| `repository.rs` | `async fn count_sessions(db) -> i64`, `async fn count_messages(db) -> i64`, `async fn count_sessions_today(db) -> i64`, `async fn group_by_source(db) -> Vec<(String, i64)>` | DB queries |
+
+**config/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `dto.rs` | `ConfigInfoDto { model, provider, raw_yaml }` | DTO |
+| `handler.rs` | `async fn get_config(Extension(state)) -> Json<ConfigInfoDto>` | Handler |
+| `repository.rs` | `async fn read_yaml(path) -> String`, `fn extract_value(yaml, key) -> Option<String>` | File helpers |
+
+**cron/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `dto.rs` | `CronJobDto { id, name, schedule, prompt, enabled, last_run, next_run }` | DTO |
+| `handler.rs` | `async fn list_jobs() -> Json<Vec<CronJobDto>>`, `async fn toggle_job(id, enable)` | Handlers |
+| `repository.rs` | `async fn read_jobs(path) -> Vec<CronJobDto>` | File reader |
+
+**ws/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `dto.rs` | `WsMessage { msg_type, data }`, `StatusUpdate { online, model, uptime }` | DTOs |
+| `handler.rs` | `async fn ws_handler(WebSocketUpgrade) -> impl IntoResponse`, `async fn handle_socket(socket, state)` | Handlers |
+| `repository.rs` | `async fn get_status(state) -> StatusUpdate` | Status getter |
+
+#### Shared
 
 | File | Purpose |
 |------|---------|
-| `build.sh` | cargo build --release + bun run build |
-| `deploy-frontend.sh` | Build frontend + SCP to Alibaba /var/www/hermes-dashboard |
-| `deploy-backend.sh` | Build backend + run as systemd service |
-| `hermes-dashboard.service` | Systemd unit file for backend |
-| `nginx/hermes-dashboard.conf` | Nginx config: serve SPA + proxy /api to Tencent:3001 + WebSocket proxy |
+| `error.rs` | `AppError` enum (NotFound, Database, Config). Implement `IntoResponse`. Helper: `impl From<sqlx::Error> for AppError` |
+
+### features/mod.rs
+
+```rust
+pub mod sessions;
+pub mod stats;
+pub mod config;
+pub mod cron;
+pub mod ws;
+```
+
+### Router Registration (main.rs)
+
+```rust
+use features::{sessions, stats, config, cron, ws};
+
+let app = Router::new()
+    // Health check (shared)
+    .route("/api/health", get(shared::health::handler))
+    // Sessions feature
+    .route("/api/sessions", get(sessions::handler::list))
+    // Stats feature
+    .route("/api/stats", get(stats::handler::overview))
+    // Config feature
+    .route("/api/config", get(config::handler::get_config))
+    // Cron feature
+    .route("/api/cron", get(cron::handler::list_jobs))
+    // WebSocket feature
+    .route("/ws", get(ws::handler::ws_handler))
+    .layer(Extension(state))
+    .layer(CorsLayer::permissive());
+```
+
+---
+
+## 🎨 Frontend Structure (SvelteKit 2 + Svelte 5)
+
+### Full Tree
+
+```
+frontend/
+├── package.json
+├── svelte.config.js
+├── vite.config.ts
+└── src/
+    ├── app.html
+    ├── app.css                        # Tailwind CSS v4
+    │
+    ├── routes/                        # SvelteKit file-based routing
+    │   ├── +layout.svelte             # Main layout (Sidebar + Header)
+    │   ├── +layout.ts                 # SPA config (ssr=false)
+    │   │
+    │   ├── +page.svelte               # Dashboard home (/)
+    │   │
+    │   ├── sessions/
+    │   │   └── +page.svelte           # Sessions list (/sessions)
+    │   │
+    │   ├── cron/
+    │   │   └── +page.svelte           # Cron jobs (/cron)
+    │   │
+    │   ├── tools/
+    │   │   └── +page.svelte           # Tools browser (/tools)
+    │   │
+    │   └── settings/
+    │       └── +page.svelte           # Settings (/settings)
+    │
+    └── lib/
+        ├── features/
+        │   │
+        │   ├── dashboard/             # Feature: Dashboard
+        │   │   ├── components/
+        │   │   │   └── StatsCard.svelte
+        │   │   ├── types.ts           # DashboardStats, SourceCount
+        │   │   ├── api.ts             # fetchStats()
+        │   │   └── index.ts           # Re-exports
+        │   │
+        │   ├── sessions/              # Feature: Sessions
+        │   │   ├── components/
+        │   │   │   └── SessionCard.svelte
+        │   │   ├── types.ts           # Session, SessionSummary
+        │   │   ├── api.ts             # fetchSessions()
+        │   │   └── index.ts
+        │   │
+        │   ├── cron/                  # Feature: Cron Jobs
+        │   │   ├── components/
+        │   │   │   └── CronJobCard.svelte
+        │   │   ├── types.ts           # CronJob
+        │   │   ├── api.ts             # fetchCronJobs(), toggleCronJob()
+        │   │   └── index.ts
+        │   │
+        │   ├── tools/                 # Feature: Tools
+        │   │   ├── components/
+        │   │   │   └── ToolCard.svelte
+        │   │   ├── types.ts           # Tool, ToolStatus
+        │   │   ├── api.ts             # fetchTools(), toggleTool()
+        │   │   └── index.ts
+        │   │
+        │   └── settings/              # Feature: Settings
+        │       ├── components/
+        │       │   └── ConfigEditor.svelte
+        │       ├── types.ts           # AppConfig
+        │       ├── api.ts             # fetchConfig(), updateConfig()
+        │       └── index.ts
+        │
+        └── shared/                    # Shared across features
+            ├── components/
+            │   ├── Sidebar.svelte     # Navigation sidebar
+            │   ├── Header.svelte      # Top bar (model, status)
+            │   └── Loading.svelte     # Loading spinner
+            │
+            ├── stores/
+            │   └── status.ts          # WebSocket status store
+            │
+            ├── types/
+            │   └── common.ts          # ApiResponse<T>, PaginatedResponse<T>
+            │
+            └── utils/
+                └── api.ts             # Base fetch wrapper, error handling
+```
+
+### File Details
+
+#### Routes (Pages)
+
+| Route | File | Imports From |
+|-------|------|--------------|
+| `/` | `+page.svelte` | `features/dashboard/`, `shared/components/` |
+| `/sessions` | `sessions/+page.svelte` | `features/sessions/`, `shared/components/` |
+| `/cron` | `cron/+page.svelte` | `features/cron/`, `shared/components/` |
+| `/tools` | `tools/+page.svelte` | `features/tools/`, `shared/components/` |
+| `/settings` | `settings/+page.svelte` | `features/settings/`, `shared/components/` |
+
+#### Features
+
+**dashboard/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `types.ts` | `DashboardStats { total_sessions, total_messages, sessions_today, messages_today }`, `SourceCount { source, count }` | TypeScript interfaces |
+| `api.ts` | `async fetchStats(): Promise<DashboardStats>` | API function |
+| `components/StatsCard.svelte` | Card with icon, title, value, trend | Component (props: `title`, `value`, `icon`, `trend`) |
+| `index.ts` | Re-exports: `export { fetchStats } from './api'` | Barrel exports |
+
+**sessions/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `types.ts` | `Session { session_id, title, source, created_at, updated_at, message_count }`, `SessionSummary { sessions, total }` | Interfaces |
+| `api.ts` | `async fetchSessions(): Promise<SessionSummary>` | API function |
+| `components/SessionCard.svelte` | Session list item: title, source, message count, date | Component (props: `session`) |
+| `index.ts` | Barrel exports | Re-exports |
+
+**cron/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `types.ts` | `CronJob { id, name, schedule, prompt, enabled, last_run, next_run }` | Interface |
+| `api.ts` | `async fetchCronJobs(): Promise<CronJob[]>`, `async toggleCronJob(id, enable): Promise<void>` | API functions |
+| `components/CronJobCard.svelte` | Cron job item: name, schedule, enable/disable toggle | Component (props: `job`) |
+| `index.ts` | Barrel exports | Re-exports |
+
+**tools/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `types.ts` | `Tool { name, enabled, description }`, `ToolStatus { tools: Tool[] }` | Interfaces |
+| `api.ts` | `async fetchTools(): Promise<ToolStatus>`, `async toggleTool(name, enable): Promise<void>` | API functions |
+| `components/ToolCard.svelte` | Tool item: name, description, enable/disable toggle | Component (props: `tool`) |
+| `index.ts` | Barrel exports | Re-exports |
+
+**settings/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `types.ts` | `AppConfig { model, provider, raw_yaml }` | Interface |
+| `api.ts` | `async fetchConfig(): Promise<AppConfig>`, `async updateConfig(config): Promise<void>` | API functions |
+| `components/ConfigEditor.svelte` | Config editor: show current model/provider, edit form | Component (props: `config`) |
+| `index.ts` | Barrel exports | Re-exports |
+
+#### Shared
+
+**components/**
+
+| File | Purpose | Props |
+|------|---------|-------|
+| `Sidebar.svelte` | Navigation sidebar with links to all pages | None |
+| `Header.svelte` | Top bar showing current model + online/offline status | `status`, `model` |
+| `Loading.svelte` | Reusable loading spinner | `size` (sm/md/lg) |
+
+**stores/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `status.ts` | WebSocket connection store. Auto-reconnect. Updates `online`, `model`, `uptime` | `status` writable store, `connectWebSocket()` |
+
+**types/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `common.ts` | Generic response types | `ApiResponse<T>`, `PaginatedResponse<T>`, `ApiError` |
+
+**utils/**
+
+| File | Purpose | Exports |
+|------|---------|---------|
+| `api.ts` | Base fetch wrapper with error handling, JSON parsing, base URL config | `apiFetch<T>(url, options?)`, `API_BASE_URL` |
+
+### Import Examples
+
+```typescript
+// In routes/sessions/+page.svelte
+import { fetchSessions } from '$lib/features/sessions/api';
+import { SessionCard } from '$lib/features/sessions/components';
+import { Loading } from '$lib/shared/components';
+import type { Session } from '$lib/features/sessions/types';
+
+// In features/dashboard/api.ts
+import { apiFetch } from '$lib/shared/utils/api';
+import type { DashboardStats } from './types';
+
+export async function fetchStats(): Promise<DashboardStats> {
+    return apiFetch<DashboardStats>('/api/stats');
+}
+```
+
+---
+
+## 📄 File Descriptions Summary
+
+### Backend (Rust)
+
+| Category | Files | Purpose |
+|----------|-------|---------|
+| Entry | `main.rs`, `config.rs`, `db.rs` | App bootstrap, config, DB connection |
+| Feature: Sessions | `dto.rs`, `handler.rs`, `repository.rs` | List sessions with message counts |
+| Feature: Stats | `dto.rs`, `handler.rs`, `repository.rs` | Aggregate statistics |
+| Feature: Config | `dto.rs`, `handler.rs`, `repository.rs` | Read Hermes config.yaml |
+| Feature: Cron | `dto.rs`, `handler.rs`, `repository.rs` | Manage cron jobs |
+| Feature: WebSocket | `dto.rs`, `handler.rs`, `repository.rs` | Real-time status updates |
+| Shared | `error.rs` | Error types and responses |
+
+### Frontend (SvelteKit)
+
+| Category | Files | Purpose |
+|----------|-------|---------|
+| Routes | `+layout.svelte`, `+layout.ts`, `+page.svelte`, 4x `+page.svelte` | Page routing |
+| Feature: Dashboard | `StatsCard.svelte`, `types.ts`, `api.ts`, `index.ts` | Dashboard stats display |
+| Feature: Sessions | `SessionCard.svelte`, `types.ts`, `api.ts`, `index.ts` | Sessions list & search |
+| Feature: Cron | `CronJobCard.svelte`, `types.ts`, `api.ts`, `index.ts` | Cron jobs management |
+| Feature: Tools | `ToolCard.svelte`, `types.ts`, `api.ts`, `index.ts` | Tools browser |
+| Feature: Settings | `ConfigEditor.svelte`, `types.ts`, `api.ts`, `index.ts` | Config editor |
+| Shared | `Sidebar.svelte`, `Header.svelte`, `Loading.svelte`, `status.ts`, `common.ts`, `api.ts` | Reusable components & utilities |
 
 ---
 
 ## 🔗 API Endpoints
 
-| Method | Path | Description | Response |
-|--------|------|-------------|----------|
-| GET | `/api/health` | Health check | `{"status":"ok","service":"hermes-dashboard","version":"0.1.0"}` |
-| GET | `/api/sessions` | List sessions | `{"sessions":[...],"total":47}` |
-| GET | `/api/stats` | Overview stats | `{"total_sessions":47,"total_messages":1234,"sessions_today":5,"messages_today":89,"active_sources":[...]}` |
-| GET | `/api/config` | Read config | `{"model":"mimo-v2.5","provider":"xiaomi","raw_yaml":"..."}` |
-| GET | `/api/cron` | List cron jobs | `[{"id":"...","name":"...","schedule":"...","enabled":true}]` |
-| WS | `/ws` | WebSocket | `{"type":"status","online":true,"model":"mimo-v2.5","uptime":"3d 12h"}` |
+| Method | Path | Feature | Handler | Description |
+|--------|------|---------|---------|-------------|
+| GET | `/api/health` | shared | `health::handler` | Health check |
+| GET | `/api/sessions` | sessions | `handler::list` | List sessions |
+| GET | `/api/stats` | stats | `handler::overview` | Overview statistics |
+| GET | `/api/config` | config | `handler::get_config` | Read config |
+| GET | `/api/cron` | cron | `handler::list_jobs` | List cron jobs |
+| WS | `/ws` | ws | `handler::ws_handler` | WebSocket real-time |
 
 ---
 
@@ -189,10 +496,32 @@ CREATE TABLE messages (
 │  │   telegram • 8 messages                         │   │
 │  │   20260529_120000_d4e5f6                        │   │
 │  └─────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 💬 Rust Backend Debug             3 hours ago   │   │
-│  │   cli • 25 messages                             │   │
-│  │   20260529_090000_g7h8i9                        │   │
-│  └─────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 📦 Component Ownership
+
+### Shared Components (used in 2+ features)
+
+| Component | Used By |
+|-----------|---------|
+| `Sidebar.svelte` | All pages (via layout) |
+| `Header.svelte` | All pages (via layout) |
+| `Loading.svelte` | Dashboard, Sessions, Cron, Tools, Settings |
+
+### Feature-Specific Components
+
+| Component | Feature | Used Only In |
+|-----------|---------|--------------|
+| `StatsCard.svelte` | Dashboard | `/` page only |
+| `SessionCard.svelte` | Sessions | `/sessions` page only |
+| `CronJobCard.svelte` | Cron | `/cron` page only |
+| `ToolCard.svelte` | Tools | `/tools` page only |
+| `ConfigEditor.svelte` | Settings | `/settings` page only |
+
+---
+
+**Last updated:** 2026-05-29
+**Structure:** Feature-based modular architecture
