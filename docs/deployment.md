@@ -1,5 +1,56 @@
 # Hermes Dashboard — Deployment Configuration
 
+## 🌐 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  Browser                                                        │
+│     │                                                           │
+│     ├─── HTTPS ─────────────────────────────────────────────┐   │
+│     │                                                        │   │
+│     │    ┌──────────────────────────────────────────────┐   │   │
+│     │    │  Cloudflare (SSL Termination)                │   │   │
+│     │    └──────────────────────────────────────────────┘   │   │
+│     │                                                        │   │
+│     ▼                                                        ▼   │
+│  ┌─────────────────────┐                    ┌─────────────────┐ │
+│  │  hermes.vinrul.my.id│                    │api-hermes.      │ │
+│  │  (Alibaba)          │                    │  vinrul.my.id   │ │
+│  │                     │                    │  (Tencent)      │ │
+│  │  ┌───────────────┐  │                    │                 │ │
+│  │  │  Nginx        │  │                    │  ┌───────────┐  │ │
+│  │  │  Port 443     │  │                    │  │  Nginx    │  │ │
+│  │  │  SSL ✅       │  │                    │  │  Port 443 │  │ │
+│  │  └───────────────┘  │                    │  │  SSL ✅   │  │ │
+│  │                     │                    │  └─────┬─────┘  │ │
+│  │  ┌───────────────┐  │                    │        │        │ │
+│  │  │  Static Files │  │                    │  ┌─────▼─────┐  │ │
+│  │  │  SvelteKit SPA│  │                    │  │  Rust API │  │ │
+│  │  └───────────────┘  │                    │  │  Port 3001│  │ │
+│  │                     │                    │  └───────────┘  │ │
+│  └─────────────────────┘                    └─────────────────┘ │
+│          │                                            │        │
+│          │                                            │        │
+│          └──────────────┐    ┌────────────────────────┘        │
+│                         │    │                                  │
+│                         ▼    ▼                                  │
+│                    ┌─────────────────┐                          │
+│                    │  Direct API     │                          │
+│                    │  Calls (HTTPS)  │                          │
+│                    └─────────────────┘                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- Frontend dan Backend adalah **terpisah** (different origins)
+- Frontend langsung panggil Backend API via HTTPS
+- Tidak ada proxy di Alibaba — Alibaba serve frontend saja
+- CORS dikonfigurasi di Backend untuk allow Frontend origin
+
+---
+
 ## 🌐 Domain & DNS
 
 | Domain | Server | IP | Purpose |
@@ -65,7 +116,7 @@ sudo ufw status
 
 ## 🔧 Nginx Configuration
 
-### Alibaba Server (Frontend)
+### Alibaba Server (Frontend Only)
 
 **File:** `/etc/nginx/sites-available/hermes.vinrul.my.id`
 
@@ -106,25 +157,6 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # API proxy ke backend di Tencent
-    location /api/ {
-        proxy_pass http://api-hermes.vinrul.my.id;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket proxy
-    location /ws {
-        proxy_pass http://api-hermes.vinrul.my.id;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
     # Cache static assets
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
         expires 1y;
@@ -137,6 +169,8 @@ server {
 }
 ```
 
+**Note:** Tidak ada `/api` atau `/ws` proxy — Frontend langsung panggil `https://api-hermes.vinrul.my.id` dari browser.
+
 **Enable & Test:**
 ```bash
 sudo ln -s /etc/nginx/sites-available/hermes.vinrul.my.id /etc/nginx/sites-enabled/
@@ -144,7 +178,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Tencent Server (Backend)
+### Tencent Server (Backend Only)
 
 **File:** `/etc/nginx/sites-available/api-hermes.vinrul.my.id`
 
@@ -204,6 +238,129 @@ sudo systemctl reload nginx
 
 ---
 
+## 🔐 CORS Configuration (Backend)
+
+Karena Frontend dan Backend adalah **different origins**, CORS harus dikonfigurasi dengan benar.
+
+### Backend (main.rs)
+
+```rust
+use tower_http::cors::{CorsLayer, AllowOrigin, AllowMethods, AllowHeaders};
+use http::Method;
+
+let cors = CorsLayer::new()
+    // Allow Frontend origin
+    .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
+    // Allow credentials (cookies)
+    .allow_credentials(true)
+    // Allow methods
+    .allow_methods(AllowMethods::from(vec![
+        Method::GET,
+        Method::POST,
+        Method::PUT,
+        Method::DELETE,
+        Method::OPTIONS,
+    ]))
+    // Allow headers
+    .allow_headers(AllowHeaders::from(vec![
+        "content-type".parse().unwrap(),
+        "authorization".parse().unwrap(),
+    ]));
+```
+
+### CORS Headers (Auto-generated by tower-http)
+
+```
+Access-Control-Allow-Origin: https://hermes.vinrul.my.id
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: content-type, authorization
+```
+
+---
+
+## 🍪 Cookie Configuration (Cross-Origin)
+
+Karena Frontend dan Backend adalah **different origins**, cookie harus dikonfigurasi untuk cross-origin.
+
+### Backend (auth handler)
+
+```rust
+use tower_cookies::Cookie;
+
+let cookie = Cookie::build(("hermes_token", token))
+    .domain(".vinrul.my.id")  // Allow cookie untuk semua subdomain
+    .path("/")
+    .http_only(true)
+    .secure(true)             // HTTPS only
+    .same_site(tower_cookies::SameSite::None)  // Cross-origin
+    .max_age(time::Duration::hours(24))
+    .build();
+```
+
+### Cookie Attributes (Cross-Origin)
+
+| Attribute | Value | Reason |
+|-----------|-------|--------|
+| `domain` | `.vinrul.my.id` | Works for all subdomains |
+| `path` | `/` | Available for all paths |
+| `httpOnly` | `true` | Not accessible via JavaScript |
+| `secure` | `true` | HTTPS only |
+| `sameSite` | `None` | Cross-origin (required for different domains) |
+| `maxAge` | `86400` | 24 hours |
+
+**Important:** `SameSite=None` requires `Secure=true` (HTTPS).
+
+---
+
+## 🖥️ Frontend Configuration
+
+### API Base URL
+
+```typescript
+// src/lib/shared/utils/api.ts
+export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
+```
+
+### Fetch with Credentials
+
+```typescript
+// All API calls must include credentials for cookies
+const response = await fetch(`${API_BASE_URL}/api/sessions`, {
+    credentials: 'include',  // CRITICAL for cross-origin cookies
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+```
+
+### Vite Config (Development)
+
+```typescript
+// vite.config.ts
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+    plugins: [sveltekit()],
+    server: {
+        proxy: {
+            '/api': {
+                target: 'https://api-hermes.vinrul.my.id',
+                changeOrigin: true,
+                secure: true,
+            },
+            '/ws': {
+                target: 'wss://api-hermes.vinrul.my.id',
+                ws: true,
+            },
+        },
+    },
+});
+```
+
+---
+
 ## 🧪 Verification
 
 ### Test SSL
@@ -213,7 +370,21 @@ sudo systemctl reload nginx
 curl -I https://hermes.vinrul.my.id
 
 # Backend
-curl https://api-hermes.vinrul.my.id/api/health
+curl -I https://api-hermes.vinrul.my.id
+```
+
+### Test CORS
+
+```bash
+# Preflight request
+curl -X OPTIONS https://api-hermes.vinrul.my.id/api/health \
+  -H "Origin: https://hermes.vinrul.my.id" \
+  -H "Access-Control-Request-Method: GET" \
+  -v
+
+# Should return:
+# Access-Control-Allow-Origin: https://hermes.vinrul.my.id
+# Access-Control-Allow-Credentials: true
 ```
 
 ### Test API
@@ -226,16 +397,35 @@ curl https://api-hermes.vinrul.my.id/api/health
 # {"status":"ok","service":"hermes-dashboard","version":"0.1.0"}
 ```
 
+### Test Cookie
+
+```bash
+# Login
+curl -X POST https://api-hermes.vinrul.my.id/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-password"}' \
+  -c cookies.txt -v
+
+# Should see Set-Cookie header with:
+# - Domain=.vinrul.my.id
+# - Secure
+# - HttpOnly
+# - SameSite=None
+```
+
 ### Test Browser
 
 1. Buka https://hermes.vinrul.my.id
-2. Harus redirect ke login page
-3. Login dengan credentials
-4. Dashboard harus terbuka
+2. Open DevTools → Network tab
+3. Login
+4. Check:
+   - API calls ke `api-hermes.vinrul.my.id` ✅
+   - Cookie `hermes_token` di-set untuk `.vinrul.my.id` ✅
+   - CORS headers ada di response ✅
 
 ---
 
-## 🔐 Environment Variables Update
+## 📋 Environment Variables
 
 ### Backend (.env atau systemd service)
 
@@ -246,35 +436,7 @@ BACKEND_URL=https://api-hermes.vinrul.my.id
 
 # Auth
 DASHBOARD_USERNAME=admin
-DASHBOARD_PASSWORD=your-strong-password
-JWT_SECRET=your-random-secret-key
-
-# Cookie (HTTPS mode)
-COOKIE_SECURE=true
-```
-
-### Frontend (vite.config.ts)
-
-```typescript
-export default defineConfig({
-    plugins: [sveltekit()],
-    server: {
-        proxy: {
-            '/api': {
-                target: 'https://api-hermes.vinrul.my.id',
-                changeOrigin: true,
-                secure: true
-            }
-        }
-    }
-});
-```
-
-### Frontend API Base URL
-
-```typescript
-// src/lib/shared/utils/api.ts
-export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
+DASHBOARD_PASSWORD=your-s...rue
 ```
 
 ---
@@ -285,34 +447,66 @@ export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
 
 - [ ] DNS records configured in Cloudflare
 - [ ] SSL certificates installed on both servers
-- [ ] Nginx configured on both servers
+- [ ] Nginx configured on both servers (frontend only on Alibaba, backend only on Tencent)
 - [ ] Firewall ports opened (443, 80)
 - [ ] UFW configured
+
+### Backend Configuration
+
+- [ ] CORS configured to allow `https://hermes.vinrul.my.id`
+- [ ] Cookie configured with `domain=.vinrul.my.id`, `same_site=None`, `secure=true`
+- [ ] Environment variables set
+
+### Frontend Configuration
+
+- [ ] API base URL set to `https://api-hermes.vinrul.my.id`
+- [ ] All fetch calls include `credentials: 'include'`
 
 ### Deployment
 
 - [ ] Backend built and deployed to Tencent
 - [ ] Frontend built and deployed to Alibaba
 - [ ] Backend service running
-- [ ] Nginx reloaded
+- [ ] Nginx reloaded on both servers
 
 ### Post-deployment
 
-- [ ] SSL test passed
+- [ ] SSL test passed (both domains)
+- [ ] CORS test passed (preflight request)
 - [ ] API health check passed
 - [ ] Frontend accessible via browser
 - [ ] Login functionality working
+- [ ] Cookie set correctly (check DevTools)
 - [ ] API calls working (check Network tab)
 
 ---
 
-## 🔄 Updated URLs
+## 🔄 Architecture Comparison
 
-| Service | Old URL | New URL |
-|---------|---------|---------|
-| Frontend | http://47.84.137.49 | https://hermes.vinrul.my.id |
-| Backend API | http://43.156.247.129:3001 | https://api-hermes.vinrul.my.id |
-| Health Check | http://43.156.247.129:3001/api/health | https://api-hermes.vinrul.my.id/api/health |
+### Before (Proxy via Alibaba)
+
+```
+Browser ──HTTPS──► Alibaba ──HTTP──► Tencent
+                   (Nginx proxy)
+```
+
+- ❌ Extra hop (slower)
+- ❌ HTTP between servers (insecure)
+- ❌ Complex proxy config
+- ✅ Same origin (no CORS)
+
+### After (Direct Connection)
+
+```
+Browser ──HTTPS──► Alibaba (Frontend)
+    │
+    └──HTTPS──► Tencent (Backend)
+```
+
+- ✅ Faster (direct)
+- ✅ All HTTPS (secure)
+- ✅ Simple config (no proxy)
+- ⚠️ Cross-origin (need CORS + cookie config)
 
 ---
 
@@ -324,25 +518,34 @@ export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
 - SSL/TLS Mode: **Full (Strict)**
 - This ensures end-to-end encryption
 
-### Cookie Settings
+### Cross-Origin Cookie Limitations
 
-With HTTPS enabled:
-```rust
-// In auth handler
-.cookie_secure(true)  // Only send over HTTPS
-.cookie_same_site(SameSite::Lax)  // CSRF protection
+- `SameSite=None` required for cross-origin
+- `Secure=true` required when `SameSite=None`
+- Cookie di-set untuk domain `.vinrul.my.id` (bisa dipakai di semua subdomain)
+- Browser harus support `SameSite=None` (Chrome 80+, Firefox 69+, Safari 13+)
+
+### CORS Preflight
+
+Browser akan mengirim `OPTIONS` request sebelum `POST`/`PUT`/`DELETE`:
+```
+OPTIONS /api/auth/login HTTP/1.1
+Origin: https://hermes.vinrul.my.id
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: content-type
 ```
 
-### CORS Update
-
-```rust
-// In main.rs
-CorsLayer::new()
-    .allow_origin("https://hermes.vinrul.my.id".parse().unwrap())
-    .allow_credentials(true)
+Backend harus respond dengan:
+```
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://hermes.vinrul.my.id
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: content-type
+Access-Control-Allow-Credentials: true
 ```
 
 ---
 
 **Last updated:** 2026-05-29
+**Architecture:** Direct Connection (No Proxy)
 **Status:** Production-ready with SSL
