@@ -4,13 +4,53 @@
 
 **Goal:** Web dashboard untuk monitor & kontrol Hermes Agent — session viewer, cost tracker, tool analytics, cron manager, dan remote control.
 
-**Architecture:** Rust backend (Axum) yang baca Hermes state.db + config + logs, expose REST API + WebSocket ke SvelteKit frontend. Deploy di Tencent server (2GB RAM) dengan Cloudflare Tunnel untuk akses dari iPad/mobile.
+**Architecture:** 
+- **Backend:** Rust (Axum 0.8) baca Hermes state.db + config + logs, expose REST API + WebSocket
+- **Frontend:** SvelteKit SPA (adapter-static) → build jadi static files → serve via Nginx di Alibaba
+- **Deploy:** Backend di Tencent (2GB RAM), Frontend di Alibaba (Nginx + 1GB RAM)
 
 **Tech Stack:**
-- Backend: Rust, Axum, SQLx, tokio, serde
-- Frontend: SvelteKit, Tailwind CSS, Chart.js
+- Backend: Rust, Axum 0.8, SQLx 0.9, tokio, serde
+- Frontend: SvelteKit (SPA mode), Tailwind CSS, Chart.js
 - Database: SQLite (baca langsung dari `~/.hermes/state.db`)
-- Deploy: Tencent server + Cloudflare Tunnel
+- Web Server: Nginx (Alibaba) untuk serve frontend static files
+
+---
+
+## Deployment Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Alibaba Server (47.84.137.49)                              │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Nginx (port 80/443)                                │   │
+│  │  ├── /          → SvelteKit SPA (static files)      │   │
+│  │  └── /api/*     → proxy_pass ke Tencent:3001        │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         │ proxy_pass
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Tencent Server (43.156.247.129)                            │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Rust Backend (port 3001)                           │   │
+│  │  ├── /api/sessions  → baca state.db                 │   │
+│  │  ├── /api/stats     → aggregate data                │   │
+│  │  ├── /api/config    → baca config.yaml              │   │
+│  │  ├── /api/cron      → manage cron jobs              │   │
+│  │  └── /ws            → WebSocket real-time           │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  ~/.hermes/state.db  (Hermes sessions & messages)   │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Kenapa pisah?**
+- Backend harus di Tencent karena baca `~/.hermes/state.db` langsung
+- Frontend di Alibaba karena Nginx udah ada dan serve static files lebih efisien
+- Nginx handle SSL, caching, compression
 
 ---
 
@@ -18,7 +58,7 @@
 
 ### Task 1.1: Initialize Rust Backend
 
-**Objective:** Setup Rust project dengan Axum web framework
+**Objective:** Setup Rust project dengan Axum web framework (versi terbaru)
 
 **Files:**
 - Create: `backend/Cargo.toml`
@@ -35,12 +75,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7", features = ["ws", "macros"] }
+axum = { version = "0.8", features = ["ws", "macros"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
-tower-http = { version = "0.5", features = ["cors", "fs"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite"] }
+tower-http = { version = "0.6", features = ["cors"] }
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
 tracing = "0.1"
@@ -50,19 +90,40 @@ tracing-subscriber = "0.3"
 **Step 2: Create main.rs**
 
 ```rust
-use axum::{routing::get, Router};
+use axum::{routing::get, Router, Extension};
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 mod config;
+mod db;
 mod routes;
+
+pub struct AppState {
+    pub db: sqlx::sqlite::SqlitePool,
+    pub config: config::AppConfig,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::init();
 
+    let app_config = config::AppConfig::from_env();
+    let db_pool = db::connect(&app_config.state_db_path()).await?;
+
+    let state = Arc::new(AppState {
+        db: db_pool,
+        config: app_config,
+    });
+
     let app = Router::new()
         .route("/api/health", get(routes::health::handler))
+        .route("/api/sessions", get(routes::sessions::list))
+        .route("/api/stats", get(routes::stats::overview))
+        .route("/api/config", get(routes::config::get_config))
+        .route("/api/cron", get(routes::cron::list_jobs))
+        .route("/ws", get(routes::ws::ws_handler))
+        .layer(Extension(state))
         .layer(CorsLayer::permissive());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
@@ -115,7 +176,20 @@ impl AppConfig {
 }
 ```
 
-**Step 4: Create routes/mod.rs**
+**Step 4: Create db.rs**
+
+```rust
+use sqlx::sqlite::SqlitePool;
+use std::path::Path;
+
+pub async fn connect(db_path: &Path) -> anyhow::Result<SqlitePool> {
+    let url = format!("sqlite:{}?mode=ro", db_path.display());
+    let pool = SqlitePool::connect(&url).await?;
+    Ok(pool)
+}
+```
+
+**Step 5: Create routes/mod.rs**
 
 ```rust
 pub mod health;
@@ -123,9 +197,10 @@ pub mod sessions;
 pub mod stats;
 pub mod config;
 pub mod cron;
+pub mod ws;
 ```
 
-**Step 5: Create routes/health.rs**
+**Step 6: Create routes/health.rs**
 
 ```rust
 use axum::Json;
@@ -140,7 +215,7 @@ pub async fn handler() -> Json<Value> {
 }
 ```
 
-**Step 6: Test**
+**Step 7: Test**
 
 ```bash
 cd backend
@@ -150,18 +225,18 @@ curl http://localhost:3001/api/health
 # Expected: {"status":"ok","service":"hermes-dashboard","version":"0.1.0"}
 ```
 
-**Step 7: Commit**
+**Step 8: Commit**
 
 ```bash
 git add backend/
-git commit -m "feat: initialize Rust backend with Axum"
+git commit -m "feat: initialize Rust backend with Axum 0.8"
 ```
 
 ---
 
-### Task 1.2: Initialize SvelteKit Frontend
+### Task 1.2: Initialize SvelteKit Frontend (SPA Mode)
 
-**Objective:** Setup SvelteKit project dengan Tailwind CSS
+**Objective:** Setup SvelteKit project sebagai SPA dengan adapter-static
 
 **Files:**
 - Create: `frontend/` (via `npx sv create`)
@@ -176,127 +251,150 @@ cd frontend
 bun install
 ```
 
-**Step 2: Add Chart.js**
+**Step 2: Install adapter-static untuk SPA**
+
+```bash
+bun add -D @sveltejs/adapter-static
+```
+
+**Step 3: Update svelte.config.js**
+
+```javascript
+import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+
+/** @type {import('@sveltejs/kit').Config} */
+const config = {
+    preprocess: vitePreprocess(),
+    kit: {
+        adapter: adapter({
+            pages: 'build',
+            assets: 'build',
+            fallback: 'index.html', // SPA fallback
+            precompress: false,
+            strict: true
+        })
+    }
+};
+
+export default config;
+```
+
+**Step 4: Create src/routes/+layout.ts**
+
+```typescript
+export const prerender = true;
+export const ssr = false; // SPA mode - no server-side rendering
+```
+
+**Step 5: Add Chart.js**
 
 ```bash
 bun add chart.js svelte-chartjs
 ```
 
-**Step 3: Setup API proxy in vite.config.ts**
-
-```typescript
-import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-    plugins: [sveltekit()],
-    server: {
-        proxy: {
-            '/api': {
-                target: 'http://localhost:3001',
-                changeOrigin: true
-            }
-        }
-    }
-});
-```
-
-**Step 4: Test**
+**Step 6: Test build**
 
 ```bash
 cd frontend
-bun dev
-# Open http://localhost:5173 — should see SvelteKit welcome page
+bun run build
+# Output di folder build/ — siap di-serve Nginx
+ls build/
 ```
 
-**Step 5: Commit**
+**Step 7: Commit**
 
 ```bash
 git add frontend/
-git commit -m "feat: initialize SvelteKit frontend with Tailwind"
+git commit -m "feat: initialize SvelteKit SPA with adapter-static"
 ```
 
 ---
 
-### Task 1.3: Setup Database Connection
+### Task 1.3: Nginx Configuration (Alibaba Server)
 
-**Objective:** Connect ke Hermes state.db SQLite
+**Objective:** Setup Nginx untuk serve SPA + proxy API ke Tencent
 
 **Files:**
-- Create: `backend/src/db.rs`
-- Modify: `backend/src/main.rs`
+- Create: `scripts/nginx/hermes-dashboard.conf`
 
-**Step 1: Create db.rs**
+**Step 1: Create Nginx config**
 
-```rust
-use sqlx::sqlite::SqlitePool;
-use std::path::Path;
+```nginx
+server {
+    listen 80;
+    server_name dashboard.example.com; # Ganti dengan domain atau IP
 
-pub async fn connect(db_path: &Path) -> anyhow::Result<SqlitePool> {
-    let url = format!("sqlite:{}?mode=ro", db_path.display());
-    let pool = SqlitePool::connect(&url).await?;
-    Ok(pool)
+    # Frontend static files
+    root /var/www/hermes-dashboard;
+    index index.html;
+
+    # SPA fallback — semua route di-handle SvelteKit
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API proxy ke backend di Tencent
+    location /api/ {
+        proxy_pass http://43.156.247.129:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket proxy
+    location /ws {
+        proxy_pass http://43.156.247.129:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 }
 ```
 
-**Step 2: Update main.rs**
-
-```rust
-use axum::{routing::get, Router, Extension};
-use std::net::SocketAddr;
-use tower_http::cors::CorsLayer;
-use std::sync::Arc;
-
-mod config;
-mod db;
-mod routes;
-
-pub struct AppState {
-    pub db: sqlx::sqlite::SqlitePool,
-    pub config: config::AppConfig,
-}
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::init();
-
-    let app_config = config::AppConfig::from_env();
-    let db_pool = db::connect(&app_config.state_db_path()).await?;
-
-    let state = Arc::new(AppState {
-        db: db_pool,
-        config: app_config,
-    });
-
-    let app = Router::new()
-        .route("/api/health", get(routes::health::handler))
-        .route("/api/sessions", get(routes::sessions::list))
-        .route("/api/stats", get(routes::stats::overview))
-        .layer(Extension(state))
-        .layer(CorsLayer::permissive());
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
-    tracing::info!("Server running on {}", addr);
-
-    axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
-
-    Ok(())
-}
-```
-
-**Step 3: Test**
+**Step 2: Deploy frontend ke Alibaba**
 
 ```bash
-cd backend
-cargo run
-curl http://localhost:3001/api/health
+# Dari Tencent (build frontend)
+cd ~/hermes-dashboard/frontend
+bun run build
+
+# Copy ke Alibaba
+scp -r build/* ubuntu@47.84.137.49:/var/www/hermes-dashboard/
+
+# Di Alibaba
+ssh ubuntu@47.84.137.49
+sudo chown -R www-data:www-data /var/www/hermes-dashboard
+```
+
+**Step 3: Enable Nginx config**
+
+```bash
+# Di Alibaba
+sudo cp hermes-dashboard.conf /etc/nginx/sites-available/
+sudo ln -s /etc/nginx/sites-available/hermes-dashboard.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
 **Step 4: Commit**
 
 ```bash
-git add backend/
-git commit -m "feat: add SQLite database connection"
+git add scripts/
+git commit -m "feat: add Nginx config for Alibaba deployment"
 ```
 
 ---
@@ -315,7 +413,6 @@ git commit -m "feat: add SQLite database connection"
 
 ```rust
 use serde::{Deserialize, Serialize};
-use chrono::NaiveDateTime;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Session {
@@ -385,7 +482,7 @@ git commit -m "feat: add sessions list API"
 
 ### Task 2.2: Stats Overview API
 
-**Objective:** API untuk overview statistics (total sessions, messages, dll)
+**Objective:** API untuk overview statistics
 
 **Files:**
 - Create: `backend/src/routes/stats.rs`
@@ -512,7 +609,6 @@ pub async fn get_config(
     let raw_yaml = std::fs::read_to_string(&config_path)
         .unwrap_or_else(|_| "Config file not found".to_string());
 
-    // Simple YAML parsing for model info
     let model = extract_yaml_value(&raw_yaml, "default");
     let provider = extract_yaml_value(&raw_yaml, "provider");
 
@@ -665,7 +761,6 @@ git commit -m "feat: add dashboard layout with sidebar"
 **Files:**
 - Create: `frontend/src/routes/+page.svelte`
 - Create: `frontend/src/lib/components/StatsCard.svelte`
-- Create: `frontend/src/lib/components/UsageChart.svelte`
 
 **Step 1: Create StatsCard.svelte**
 
@@ -763,7 +858,7 @@ git commit -m "feat: add dashboard layout with sidebar"
 ```bash
 cd frontend
 bun dev
-# Should see stats cards (values might be 0 if state.db is empty)
+# Should see stats cards
 ```
 
 **Step 4: Commit**
@@ -874,7 +969,7 @@ git commit -m "feat: add dashboard home page with stats"
 ```bash
 cd frontend
 bun dev
-# Navigate to /sessions — should see session list
+# Navigate to /sessions
 ```
 
 **Step 4: Commit**
@@ -894,7 +989,6 @@ git commit -m "feat: add sessions page with search"
 
 **Files:**
 - Create: `backend/src/routes/ws.rs`
-- Modify: `backend/src/main.rs`
 - Create: `frontend/src/lib/stores/status.ts`
 
 **Step 1: Create backend WebSocket handler**
@@ -907,7 +1001,6 @@ use axum::{
 };
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
-use tokio::sync::broadcast;
 use crate::AppState;
 
 pub async fn ws_handler(
@@ -927,9 +1020,7 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
     // Keep connection alive
     while let Some(Ok(msg)) = receiver.next().await {
         match msg {
-            Message::Text(text) => {
-                // Handle client messages if needed
-            }
+            Message::Text(_) => {}
             Message::Close(_) => break,
             _ => {}
         }
@@ -946,13 +1037,7 @@ async fn get_status(state: &AppState) -> serde_json::Value {
 }
 ```
 
-**Step 2: Add to main.rs**
-
-```rust
-.route("/ws", get(routes::ws::ws_handler))
-```
-
-**Step 3: Create frontend WebSocket store**
+**Step 2: Create frontend WebSocket store**
 
 ```typescript
 // frontend/src/lib/stores/status.ts
@@ -976,8 +1061,9 @@ let ws: WebSocket | null = null;
 export function connectWebSocket() {
     if (!browser) return;
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    // WebSocket URL — ganti dengan domain/IP kamu
+    const wsUrl = 'ws://47.84.137.49/ws';
+    ws = new WebSocket(wsUrl);
     
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -991,20 +1077,20 @@ export function connectWebSocket() {
     };
     
     ws.onclose = () => {
-        setTimeout(connectWebSocket, 3000); // Reconnect
+        setTimeout(connectWebSocket, 3000);
     };
 }
 ```
 
-**Step 4: Test**
+**Step 3: Test**
 
 ```bash
 cd backend && cargo run &
 cd frontend && bun dev &
-# Open browser, check WebSocket connection in DevTools
+# Open browser, check WebSocket in DevTools
 ```
 
-**Step 5: Commit**
+**Step 4: Commit**
 
 ```bash
 git add backend/ frontend/
@@ -1043,9 +1129,7 @@ pub struct CronJob {
 pub async fn list_jobs(
     Extension(_state): Extension<Arc<AppState>>,
 ) -> Json<Vec<CronJob>> {
-    // Read from Hermes cron storage
-    // This is a simplified version — actual implementation
-    // would parse the cron jobs from Hermes state
+    // TODO: Read from Hermes cron storage
     Json(vec![])
 }
 ```
@@ -1070,10 +1154,6 @@ pub async fn list_jobs(
             loading = false;
         }
     });
-    
-    async function toggleJob(id: string, enable: boolean) {
-        // API call to enable/disable job
-    }
 </script>
 
 <div class="space-y-6">
@@ -1086,17 +1166,9 @@ pub async fn list_jobs(
     {:else}
         <div class="space-y-3">
             {#each jobs as job}
-                <div class="bg-white rounded-lg shadow-sm p-4 flex justify-between items-center">
-                    <div>
-                        <h3 class="font-semibold">{job.name || job.id}</h3>
-                        <p class="text-sm text-gray-500">{job.schedule}</p>
-                    </div>
-                    <button 
-                        on:click={() => toggleJob(job.id, !job.enabled)}
-                        class="px-4 py-2 rounded {job.enabled ? 'bg-green-500' : 'bg-gray-400'}"
-                    >
-                        {job.enabled ? 'Enabled' : 'Disabled'}
-                    </button>
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <h3 class="font-semibold">{job.name || job.id}</h3>
+                    <p class="text-sm text-gray-500">{job.schedule}</p>
                 </div>
             {/each}
         </div>
@@ -1107,7 +1179,7 @@ pub async fn list_jobs(
 **Step 3: Test**
 
 ```bash
-# Navigate to /cron in browser
+# Navigate to /cron
 ```
 
 **Step 4: Commit**
@@ -1123,11 +1195,12 @@ git commit -m "feat: add cron jobs manager"
 
 ### Task 5.1: Build & Deploy Scripts
 
-**Objective:** Scripts untuk build dan deploy ke Tencent server
+**Objective:** Scripts untuk build dan deploy
 
 **Files:**
 - Create: `scripts/build.sh`
-- Create: `scripts/deploy.sh`
+- Create: `scripts/deploy-frontend.sh`
+- Create: `scripts/deploy-backend.sh`
 
 **Step 1: Create build.sh**
 
@@ -1146,46 +1219,56 @@ bun run build
 cd ..
 
 echo "Build complete!"
+echo "Backend: backend/target/release/hermes-dashboard-backend"
+echo "Frontend: frontend/build/"
 ```
 
-**Step 2: Create deploy.sh**
+**Step 2: Create deploy-frontend.sh**
 
 ```bash
 #!/bin/bash
 set -e
 
-SERVER="localhost"
-PORT=3001
+ALIBABA_IP="47.84.137.49"
+REMOTE_USER="ubuntu"
+REMOTE_PATH="/var/www/hermes-dashboard"
 
-echo "Starting Hermes Dashboard..."
+echo "Deploying frontend to Alibaba..."
 
-# Start backend
-cd backend
-./target/release/hermes-dashboard-backend &
-BACKEND_PID=$!
+# Build frontend
+cd frontend
+bun run build
+cd ..
 
-# Serve frontend static files (or use reverse proxy)
-cd ../frontend
-bun run preview --port 4173 &
-FRONTEND_PID=$!
+# Copy to Alibaba
+scp -i ~/.ssh/alibabakey.pem -r build/* ${REMOTE_USER}@${ALIBABA_IP}:${REMOTE_PATH}/
 
-echo "Backend running on port $PORT (PID: $BACKEND_PID)"
-echo "Frontend running on port 4173 (PID: $FRONTEND_PID)"
-echo ""
-echo "Dashboard available at: http://$SERVER:4173"
-
-# Wait for Ctrl+C
-trap "kill $BACKEND_PID $FRONTEND_PID; exit" SIGINT SIGTERM
-wait
+echo "Frontend deployed!"
+echo "Access at: http://${ALIBABA_IP}"
 ```
 
-**Step 3: Make executable**
+**Step 3: Create deploy-backend.sh**
+
+```bash
+#!/bin/bash
+set -e
+
+echo "Starting backend..."
+
+cd backend
+cargo build --release
+
+# Run backend
+./target/release/hermes-dashboard-backend
+```
+
+**Step 4: Make executable**
 
 ```bash
 chmod +x scripts/*.sh
 ```
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```bash
 git add scripts/
@@ -1194,9 +1277,9 @@ git commit -m "feat: add build and deploy scripts"
 
 ---
 
-### Task 5.2: Systemd Service
+### Task 5.2: Systemd Service (Backend)
 
-**Objective:** Run dashboard sebagai systemd service
+**Objective:** Run backend sebagai systemd service di Tencent
 
 **Files:**
 - Create: `scripts/hermes-dashboard.service`
@@ -1205,7 +1288,7 @@ git commit -m "feat: add build and deploy scripts"
 
 ```ini
 [Unit]
-Description=Hermes Dashboard
+Description=Hermes Dashboard Backend
 After=network.target
 
 [Service]
@@ -1235,7 +1318,7 @@ sudo systemctl start hermes-dashboard
 
 ```bash
 git add scripts/
-git commit -m "feat: add systemd service file"
+git commit -m "feat: add systemd service for backend"
 ```
 
 ---
@@ -1251,15 +1334,31 @@ git commit -m "feat: add systemd service file"
 
 ### Estimated Time: 1-2 minggu
 
+### Deployment Notes
+
+**Tencent (Backend):**
+- Port 3001 (API + WebSocket)
+- Systemd service
+- Baca langsung `~/.hermes/state.db`
+
+**Alibaba (Frontend):**
+- Nginx serve static files
+- Proxy `/api/*` ke Tencent:3001
+- Proxy `/ws` ke Tencent:3001
+- IP: 47.84.137.49
+
+**Akses Dashboard:**
+- http://47.84.137.49 (langsung via IP)
+- Atau http://dashboard.example.com (kalau pakai domain)
+
 ### Next Steps
 1. Review plan ini
 2. Mulai Phase 1 (setup)
 3. Test tiap phase sebelum lanjut
-4. Deploy ke Tencent server
-5. Setup Cloudflare Tunnel untuk akses dari iPad
+4. Deploy ke production
 
 ---
 
-**Plan created:** $(date)
-**Author:** Hermes Agent
+**Plan created:** 2026-05-29
+**Author:** Hermes Agent (MiMo v2.5-pro)
 **Status:** Ready for implementation
