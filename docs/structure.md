@@ -588,3 +588,34 @@ routes/+layout.svelte        # Add auth check + redirect
 shared/utils/api.ts          # Add Authorization header
 ```
 
+
+---
+
+## 📱 Responsive Design
+
+### Breakpoints (Tailwind CSS v4)
+
+```
+sm: 640px    → Small phones landscape
+md: 768px    → Tablets portrait
+lg: 1024px   → Tablets landscape, small laptops
+xl: 1280px   → Laptops, desktops
+2xl: 1536px  → Large desktops
+```
+
+### Layout per Screen Size
+
+| Screen | Sidebar | Grid Columns | Card Padding |
+|--------|---------|--------------|--------------|
+| Desktop (≥1024px) | Fixed, 264px | 4 cols | p-6 |
+| Tablet (768-1023px) | Hidden, hamburger | 2 cols | p-5 |
+| Mobile (<768px) | Hidden, hamburger | 1 col | p-4 |
+
+### Component Responsiveness
+
+**All components must support:**
+- Touch targets (min 44x44px for mobile)
+- Flexible widths (no fixed pixel widths)
+- Responsive typography (text-sm on mobile, text-base on desktop)
+- Stacked layouts on mobile (flex-col → sm:flex-row)
+
