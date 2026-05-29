@@ -6,14 +6,16 @@
 
 **Architecture:** 
 - **Backend:** Rust (Axum 0.8) baca Hermes state.db + config + logs, expose REST API + WebSocket
-- **Frontend:** SvelteKit SPA (adapter-static) → build jadi static files → serve via Nginx di Alibaba
+- **Frontend:** SvelteKit 2 + Svelte 5 + Tailwind CSS 4 (SPA mode via adapter-static) → build jadi static files → serve via Nginx di Alibaba
 - **Deploy:** Backend di Tencent (2GB RAM), Frontend di Alibaba (Nginx + 1GB RAM)
+- **Runtime:** Bun (tidak perlu Node.js)
 
 **Tech Stack:**
 - Backend: Rust, Axum 0.8, SQLx 0.9, tokio, serde
-- Frontend: SvelteKit (SPA mode), Tailwind CSS, Chart.js
+- Frontend: SvelteKit 2.61, Svelte 5.55, Tailwind CSS 4.3, Chart.js
 - Database: SQLite (baca langsung dari `~/.hermes/state.db`)
 - Web Server: Nginx (Alibaba) untuk serve frontend static files
+- Package Manager: Bun (bukan npm/yarn)
 
 ---
 
@@ -52,6 +54,11 @@
 - Frontend di Alibaba karena Nginx udah ada dan serve static files lebih efisien
 - Nginx handle SSL, caching, compression
 
+**Kenapa Bun?**
+- Lebih cepat dari npm/yarn (10-100x)
+- Tidak perlu install Node.js di server
+- `bunx` bisa gantikan `npx`
+
 ---
 
 ## Phase 1: Project Setup & Foundation
@@ -64,7 +71,9 @@
 - Create: `backend/Cargo.toml`
 - Create: `backend/src/main.rs`
 - Create: `backend/src/config.rs`
+- Create: `backend/src/db.rs`
 - Create: `backend/src/routes/mod.rs`
+- Create: `backend/src/routes/health.rs`
 
 **Step 1: Create Cargo.toml**
 
@@ -236,17 +245,20 @@ git commit -m "feat: initialize Rust backend with Axum 0.8"
 
 ### Task 1.2: Initialize SvelteKit Frontend (SPA Mode)
 
-**Objective:** Setup SvelteKit project sebagai SPA dengan adapter-static
+**Objective:** Setup SvelteKit 2 + Svelte 5 + Tailwind CSS 4 sebagai SPA
 
 **Files:**
-- Create: `frontend/` (via `npx sv create`)
+- Create: `frontend/` (via `bunx sv create`)
 
-**Step 1: Create SvelteKit project**
+**Step 1: Create SvelteKit project dengan Bun**
 
 ```bash
 cd ~/hermes-dashboard
-npx sv@latest create frontend
-# Select: Skeleton project, TypeScript, Tailwind CSS
+bunx sv@latest create frontend
+# Select:
+#   - Skeleton project
+#   - TypeScript
+#   - Tailwind CSS v4
 cd frontend
 bun install
 ```
@@ -293,7 +305,20 @@ export const ssr = false; // SPA mode - no server-side rendering
 bun add chart.js svelte-chartjs
 ```
 
-**Step 6: Test build**
+**Step 6: Verify versions**
+
+```bash
+bun pm ls svelte
+# Expected: svelte@5.x.x
+
+bun pm ls @sveltejs/kit
+# Expected: @sveltejs/kit@2.x.x
+
+bun pm ls tailwindcss
+# Expected: tailwindcss@4.x.x
+```
+
+**Step 7: Test build**
 
 ```bash
 cd frontend
@@ -302,11 +327,11 @@ bun run build
 ls build/
 ```
 
-**Step 7: Commit**
+**Step 8: Commit**
 
 ```bash
 git add frontend/
-git commit -m "feat: initialize SvelteKit SPA with adapter-static"
+git commit -m "feat: initialize SvelteKit 2 + Svelte 5 + Tailwind CSS 4 SPA"
 ```
 
 ---
@@ -323,7 +348,7 @@ git commit -m "feat: initialize SvelteKit SPA with adapter-static"
 ```nginx
 server {
     listen 80;
-    server_name dashboard.example.com; # Ganti dengan domain atau IP
+    server_name _; # Ganti dengan domain atau IP
 
     # Frontend static files
     root /var/www/hermes-dashboard;
@@ -373,10 +398,10 @@ cd ~/hermes-dashboard/frontend
 bun run build
 
 # Copy ke Alibaba
-scp -r build/* ubuntu@47.84.137.49:/var/www/hermes-dashboard/
+scp -i ~/.ssh/alibabakey.pem -r build/* ubuntu@47.84.137.49:/var/www/hermes-dashboard/
 
 # Di Alibaba
-ssh ubuntu@47.84.137.49
+ssh -i ~/.ssh/alibabakey.pem ubuntu@47.84.137.49
 sudo chown -R www-data:www-data /var/www/hermes-dashboard
 ```
 
@@ -650,14 +675,14 @@ git commit -m "feat: add config reader API"
 
 ### Task 3.1: Dashboard Layout
 
-**Objective:** Buat layout utama dengan sidebar navigasi
+**Objective:** Buat layout utama dengan sidebar navigasi (Svelte 5 syntax)
 
 **Files:**
 - Create: `frontend/src/routes/+layout.svelte`
 - Create: `frontend/src/lib/components/Sidebar.svelte`
 - Create: `frontend/src/lib/components/Header.svelte`
 
-**Step 1: Create Sidebar.svelte**
+**Step 1: Create Sidebar.svelte (Svelte 5 syntax)**
 
 ```svelte
 <script lang="ts">
@@ -699,8 +724,10 @@ git commit -m "feat: add config reader API"
 
 ```svelte
 <script lang="ts">
-    export let status: 'online' | 'offline' = 'online';
-    export let model: string = 'Unknown';
+    let { status = 'online', model = 'Unknown' }: { 
+        status?: 'online' | 'offline'; 
+        model?: string 
+    } = $props();
 </script>
 
 <header class="bg-gray-800 text-white px-6 py-4 flex justify-between items-center">
@@ -749,27 +776,29 @@ bun dev
 
 ```bash
 git add frontend/
-git commit -m "feat: add dashboard layout with sidebar"
+git commit -m "feat: add dashboard layout with sidebar (Svelte 5)"
 ```
 
 ---
 
 ### Task 3.2: Dashboard Home Page
 
-**Objective:** Halaman utama dengan stats cards dan chart
+**Objective:** Halaman utama dengan stats cards (Svelte 5 runes)
 
 **Files:**
 - Create: `frontend/src/routes/+page.svelte`
 - Create: `frontend/src/lib/components/StatsCard.svelte`
 
-**Step 1: Create StatsCard.svelte**
+**Step 1: Create StatsCard.svelte (Svelte 5)**
 
 ```svelte
 <script lang="ts">
-    export let title: string;
-    export let value: string | number;
-    export let icon: string;
-    export let trend: 'up' | 'down' | 'neutral' = 'neutral';
+    let { title, value, icon, trend = 'neutral' }: {
+        title: string;
+        value: string | number;
+        icon: string;
+        trend?: 'up' | 'down' | 'neutral';
+    } = $props();
 </script>
 
 <div class="bg-white rounded-xl shadow-sm p-6">
@@ -786,21 +815,21 @@ git commit -m "feat: add dashboard layout with sidebar"
 </div>
 ```
 
-**Step 2: Create +page.svelte**
+**Step 2: Create +page.svelte (Svelte 5 runes)**
 
 ```svelte
 <script lang="ts">
     import StatsCard from '$lib/components/StatsCard.svelte';
     import { onMount } from 'svelte';
     
-    let stats = {
+    let stats = $state({
         total_sessions: 0,
         total_messages: 0,
         sessions_today: 0,
         messages_today: 0,
-    };
+    });
     
-    let loading = true;
+    let loading = $state(true);
     
     onMount(async () => {
         try {
@@ -865,7 +894,7 @@ bun dev
 
 ```bash
 git add frontend/
-git commit -m "feat: add dashboard home page with stats"
+git commit -m "feat: add dashboard home page with Svelte 5 runes"
 ```
 
 ---
@@ -878,17 +907,19 @@ git commit -m "feat: add dashboard home page with stats"
 - Create: `frontend/src/routes/sessions/+page.svelte`
 - Create: `frontend/src/lib/components/SessionCard.svelte`
 
-**Step 1: Create SessionCard.svelte**
+**Step 1: Create SessionCard.svelte (Svelte 5)**
 
 ```svelte
 <script lang="ts">
-    export let session: {
-        session_id: string;
-        title: string | null;
-        source: string | null;
-        created_at: string | null;
-        message_count: number | null;
-    };
+    let { session }: {
+        session: {
+            session_id: string;
+            title: string | null;
+            source: string | null;
+            created_at: string | null;
+            message_count: number | null;
+        };
+    } = $props();
 </script>
 
 <div class="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer">
@@ -909,16 +940,24 @@ git commit -m "feat: add dashboard home page with stats"
 </div>
 ```
 
-**Step 2: Create sessions/+page.svelte**
+**Step 2: Create sessions/+page.svelte (Svelte 5)**
 
 ```svelte
 <script lang="ts">
     import SessionCard from '$lib/components/SessionCard.svelte';
     import { onMount } from 'svelte';
     
-    let sessions: any[] = [];
-    let loading = true;
-    let search = '';
+    let sessions = $state<any[]>([]);
+    let loading = $state(true);
+    let search = $state('');
+    
+    let filteredSessions = $derived(
+        sessions.filter(s => 
+            search === '' || 
+            s.title?.toLowerCase().includes(search.toLowerCase()) ||
+            s.session_id.toLowerCase().includes(search.toLowerCase())
+        )
+    );
     
     onMount(async () => {
         try {
@@ -931,12 +970,6 @@ git commit -m "feat: add dashboard home page with stats"
             loading = false;
         }
     });
-    
-    $: filteredSessions = sessions.filter(s => 
-        search === '' || 
-        s.title?.toLowerCase().includes(search.toLowerCase()) ||
-        s.session_id.toLowerCase().includes(search.toLowerCase())
-    );
 </script>
 
 <div class="space-y-6">
@@ -976,7 +1009,7 @@ bun dev
 
 ```bash
 git add frontend/
-git commit -m "feat: add sessions page with search"
+git commit -m "feat: add sessions page with Svelte 5 runes"
 ```
 
 ---
@@ -1134,15 +1167,15 @@ pub async fn list_jobs(
 }
 ```
 
-**Step 2: Create cron UI**
+**Step 2: Create cron UI (Svelte 5)**
 
 ```svelte
 <!-- frontend/src/routes/cron/+page.svelte -->
 <script lang="ts">
     import { onMount } from 'svelte';
     
-    let jobs: any[] = [];
-    let loading = true;
+    let jobs = $state<any[]>([]);
+    let loading = $state(true);
     
     onMount(async () => {
         try {
@@ -1324,6 +1357,11 @@ git commit -m "feat: add systemd service for backend"
 ---
 
 ## Summary
+
+### Versions
+- **Rust Backend:** Axum 0.8.9, SQLx 0.9.0, tokio 1.52.3, serde 1.0.228
+- **Frontend:** SvelteKit 2.61.1, Svelte 5.55.10, Tailwind CSS 4.3.0
+- **Runtime:** Bun (tidak perlu Node.js)
 
 ### Total Tasks: 12
 - Phase 1: Setup (3 tasks)
