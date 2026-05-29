@@ -1464,3 +1464,271 @@ COOKIE_SECURE=true
 export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
 ```
 
+
+---
+
+## 📱 Responsive Design Requirements
+
+### Overview
+
+Dashboard harus **responsive** dan bisa diakses dari:
+- **Desktop** (1920px+)
+- **Laptop** (1366px - 1919px)
+- **Tablet/iPad** (768px - 1365px)
+- **Mobile/iPhone/Android** (320px - 767px)
+
+### Breakpoints
+
+```css
+/* Tailwind CSS v4 breakpoints */
+sm: 640px    /* Small phones landscape */
+md: 768px    /* Tablets portrait */
+lg: 1024px   /* Tablets landscape, small laptops */
+xl: 1280px   /* Laptops, desktops */
+2xl: 1536px  /* Large desktops */
+```
+
+### Layout Rules
+
+#### Desktop (≥1024px)
+```
+┌─────────────────────────────────────────────────────────┐
+│  ┌──────────┐  ┌──────────────────────────────────────┐ │
+│  │          │  │                                      │ │
+│  │ Sidebar  │  │           Main Content               │ │
+│  │ 264px    │  │                                      │ │
+│  │          │  │                                      │ │
+│  └──────────┘  └──────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+- Sidebar: Fixed, 264px width
+- Main content: Flex-grow
+- Cards: 4 columns grid
+
+#### Tablet (768px - 1023px)
+```
+┌─────────────────────────────────────────┐
+│  ┌───────────────────────────────────┐  │
+│  │         Header + Menu Icon        │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │                                   │  │
+│  │         Main Content              │  │
+│  │                                   │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+```
+
+- Sidebar: Hidden, toggle via hamburger menu
+- Main content: Full width
+- Cards: 2 columns grid
+
+#### Mobile (<768px)
+```
+┌─────────────────────┐
+│  ┌─────────────────┐│
+│  │ Header + Menu   ││
+│  └─────────────────┘│
+│  ┌─────────────────┐│
+│  │                 ││
+│  │ Main Content    ││
+│  │                 ││
+│  └─────────────────┘│
+└─────────────────────┘
+```
+
+- Sidebar: Hidden, toggle via hamburger menu
+- Main content: Full width
+- Cards: 1 column stack
+
+### Component Responsive Rules
+
+#### Sidebar (shared/components/Sidebar.svelte)
+
+```svelte
+<script lang="ts">
+    import { page } from '$app/stores';
+    
+    let isOpen = $state(false);
+    let isDesktop = $state(true);
+    
+    // Check screen size on mount
+    import { onMount } from 'svelte';
+    
+    onMount(() => {
+        const checkSize = () => {
+            isDesktop = window.innerWidth >= 1024;
+            if (isDesktop) isOpen = true;
+        };
+        
+        checkSize();
+        window.addEventListener('resize', checkSize);
+        
+        return () => window.removeEventListener('resize', checkSize);
+    });
+    
+    const navItems = [
+        { href: '/', label: 'Dashboard', icon: '📊' },
+        { href: '/sessions', label: 'Sessions', icon: '💬' },
+        { href: '/cron', label: 'Cron Jobs', icon: '⏰' },
+        { href: '/tools', label: 'Tools', icon: '🔧' },
+        { href: '/settings', label: 'Settings', icon: '⚙️' },
+    ];
+</script>
+
+<!-- Mobile menu button -->
+<button 
+    class="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-lg"
+    on:click={() => isOpen = !isOpen}
+>
+    {isOpen ? '✕' : '☰'}
+</button>
+
+<!-- Overlay for mobile -->
+{#if isOpen && !isDesktop}
+    <div 
+        class="fixed inset-0 bg-black bg-opacity-50 z-40"
+        on:click={() => isOpen = false}
+    ></div>
+{/if}
+
+<!-- Sidebar -->
+<aside class="fixed lg:static inset-y-0 left-0 z-40 w-64 bg-gray-900 text-white p-4
+              transform transition-transform duration-200 ease-in-out
+              {isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold">🤖 Hermes</h1>
+        <p class="text-gray-400 text-sm">Dashboard</p>
+    </div>
+    
+    <nav>
+        {#each navItems as item}
+            <a 
+                href={item.href}
+                class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors
+                       {$page.url.pathname === item.href 
+                         ? 'bg-blue-600 text-white' 
+                         : 'text-gray-300 hover:bg-gray-800'}"
+                on:click={() => !isDesktop && (isOpen = false)}
+            >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+            </a>
+        {/each}
+    </nav>
+</aside>
+```
+
+#### Stats Cards (features/dashboard/components/StatsCard.svelte)
+
+```svelte
+<script lang="ts">
+    let { title, value, icon, trend = 'neutral' }: {
+        title: string;
+        value: string | number;
+        icon: string;
+        trend?: 'up' | 'down' | 'neutral';
+    } = $props();
+</script>
+
+<div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+    <div class="flex items-center justify-between mb-3 sm:mb-4">
+        <span class="text-2xl sm:text-3xl">{icon}</span>
+        {#if trend === 'up'}
+            <span class="text-green-500 text-xs sm:text-sm">↑ +12%</span>
+        {:else if trend === 'down'}
+            <span class="text-red-500 text-xs sm:text-sm">↓ -5%</span>
+        {/if}
+    </div>
+    <p class="text-gray-500 text-xs sm:text-sm">{title}</p>
+    <p class="text-2xl sm:text-3xl font-bold mt-1">{value}</p>
+</div>
+```
+
+#### Dashboard Grid (routes/+page.svelte)
+
+```svelte
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+    <StatsCard ... />
+    <StatsCard ... />
+    <StatsCard ... />
+    <StatsCard ... />
+</div>
+```
+
+#### Session Cards (features/sessions/components/SessionCard.svelte)
+
+```svelte
+<div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 hover:shadow-md transition-shadow">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+        <div>
+            <h3 class="font-semibold text-base sm:text-lg">
+                {session.title || 'Untitled Session'}
+            </h3>
+            <p class="text-gray-500 text-xs sm:text-sm mt-1">
+                {session.source || 'unknown'} • {session.message_count || 0} messages
+            </p>
+        </div>
+        <span class="text-xs text-gray-400">
+            {session.created_at ? new Date(session.created_at).toLocaleDateString() : 'Unknown'}
+        </span>
+    </div>
+    <p class="text-xs text-gray-400 mt-2 font-mono">{session.session_id}</p>
+</div>
+```
+
+#### Search Input
+
+```svelte
+<input 
+    type="text" 
+    placeholder="Search sessions..."
+    bind:value={search}
+    class="w-full sm:w-64 px-3 sm:px-4 py-2 border rounded-lg text-sm"
+/>
+```
+
+### Font Sizes
+
+| Element | Mobile | Tablet | Desktop |
+|---------|--------|--------|---------|
+| Page title | text-xl | text-2xl | text-2xl |
+| Card title | text-base | text-lg | text-lg |
+| Body text | text-sm | text-sm | text-base |
+| Small text | text-xs | text-xs | text-sm |
+
+### Spacing
+
+| Element | Mobile | Tablet | Desktop |
+|---------|--------|--------|---------|
+| Page padding | p-4 | p-5 | p-6 |
+| Card padding | p-4 | p-5 | p-6 |
+| Card gap | gap-4 | gap-5 | gap-6 |
+| Section gap | space-y-4 | space-y-5 | space-y-6 |
+
+### Testing Checklist
+
+- [ ] Desktop (1920x1080) - Chrome, Firefox, Safari
+- [ ] Laptop (1366x768) - Chrome, Firefox
+- [ ] iPad (1024x768) - Safari
+- [ ] iPad Mini (768x1024) - Safari
+- [ ] iPhone (375x812) - Safari
+- [ ] Android (360x800) - Chrome
+- [ ] Small phone (320x568) - Chrome
+
+### Tools for Testing
+
+```bash
+# Chrome DevTools
+F12 → Toggle Device Toolbar (Ctrl+Shift+M)
+
+# Responsive design mode
+- iPhone SE
+- iPhone 14 Pro
+- iPad Air
+- iPad Mini
+- Samsung Galaxy S20
+- Pixel 7
+```
+
