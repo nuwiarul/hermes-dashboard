@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+target/
+vendor/
+
+# Build outputs
+build/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Environment variables (NEVER commit!)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+*.cache
+
+# Coverage
+coverage/
+*.lcov
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.temp

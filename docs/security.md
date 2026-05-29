@@ -873,6 +873,7 @@ use tower_http::cors::{CorsLayer, AllowOrigin, AllowMethods, AllowHeaders};
 use http::Method;
 
 let cors = CorsLayer::new()
+    // Load from env: CORS_ORIGIN
     // Allow specific origin (NOT wildcard!)
     .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
     // Allow credentials
