@@ -1,78 +1,162 @@
-## 🔒 Security: JWT Authentication (HttpOnly Cookie)
+## 🔒 Security: JWT Authentication (Dual-Token with Refresh)
 
 ### Overview
 
-Dashboard dilindungi JWT yang disimpan di **HttpOnly Cookie**. Token tidak bisa diakses JavaScript (XSS-proof) dan otomatis terkirim di setiap request.
-
-### Token Storage Comparison
-
-| Method | XSS Safe | CSRF Safe | Auto-send | Implementation |
-|--------|----------|-----------|-----------|----------------|
-| localStorage | ❌ | ✅ | ❌ | Simpel |
-| sessionStorage | ❌ | ✅ | ❌ | Simpel |
-| **HttpOnly Cookie** | ✅ | ⚠️ (need SameSite) | ✅ | Sedang |
-| Memory (JS variable) | ✅ | ✅ | ❌ | Ribet |
-
-**Pilihan: HttpOnly Cookie** — balance antara security dan simplicity.
-
----
-
-### Auth Flow
+Dashboard menggunakan **dual-token system** untuk keamanan maksimal:
+- **Access Token** — Short-lived (15 menit), untuk akses API
+- **Refresh Token** — Long-lived (7 hari), untuk mendapatkan access token baru
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│  1. User buka /login                                            │
+│  LOGIN FLOW                                                     │
+│  ───────────                                                    │
+│                                                                 │
+│  1. User login (POST /api/auth/login)                           │
 │         │                                                       │
 │         ▼                                                       │
-│  2. Input username + password                                   │
-│         │                                                       │
-│         ▼                                                       │
-│  3. POST /api/auth/login                                        │
-│         │                                                       │
-│         ▼                                                       │
-│  4. Server verify credentials                                   │
+│  2. Server verify credentials                                   │
 │         │                                                       │
 │         ├─ Invalid → 401 Unauthorized                           │
 │         │                                                       │
-│         └─ Valid → Generate JWT                                 │
+│         └─ Valid → Generate tokens                              │
 │                   │                                             │
-│                   ▼                                             │
-│  5. Set-Cookie: hermes_token=***; HttpOnly; Secure; SameSite=None│
+│                   ├── Access Token (15 min)                     │
+│                   │   - HttpOnly                                │
+│                   │   - Secure                                  │
+│                   │   - SameSite=None                           │
+│                   │   - Max-Age=900 (15 min)                    │
 │                   │                                             │
-│                   ▼                                             │
-│  6. Response: { success: true }                                 │
-│                   │                                             │
-│                   ▼                                             │
-│  7. Browser auto-save cookie                                    │
-│                   │                                             │
-│                   ▼                                             │
-│  8. Redirect ke / (dashboard)                                   │
-│                   │                                             │
-│                   ▼                                             │
-│  9. Subsequent requests auto-include Cookie header              │
-│     Cookie: hermes_token=***                                    │
-│                   │                                             │
-│                   ▼                                             │
-│  10. Server verify token di cookie                              │
+│                   └── Refresh Token (7 days)                    │
+│                       - HttpOnly                                │
+│                       - Secure                                  │
+│                       - SameSite=None                           │
+│                       - Path=/auth/refresh                      │
+│                       - Max-Age=604800 (7 days)                 │
+│                                                                 │
+│  3. Set kedua cookies di response                               │
 │         │                                                       │
-│         └─ Valid → Return data                                  │
+│         ▼                                                       │
+│  4. Response: { success: true }                                 │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  API REQUEST FLOW                                               │
+│  ────────────────                                               │
+│                                                                 │
+│  1. Browser kirim request ke API                                │
+│         │                                                       │
+│         ├── Cookie: access_token=*** (otomatis)                 │
+│         │                                                       │
+│         ▼                                                       │
+│  2. Backend verify access token                                 │
+│         │                                                       │
+│         ├─ Valid → Process request, return data                 │
+│         │                                                       │
+│         └─ Expired → 401 Unauthorized                           │
+│                   │                                             │
+│                   ▼                                             │
+│  3. Frontend detect 401                                         │
+│         │                                                       │
+│         ▼                                                       │
+│  4. Auto-refresh (POST /api/auth/refresh)                       │
+│         │                                                       │
+│         ├── Cookie: refresh_token=*** (otomatis)                │
+│         │                                                       │
+│         ▼                                                       │
+│  5. Backend verify refresh token                                │
+│         │                                                       │
+│         ├─ Invalid/Expired → 401, redirect to login             │
+│         │                                                       │
+│         └─ Valid → Generate new tokens (rotation)               │
+│                   │                                             │
+│                   ├── New access token (15 min)                 │
+│                   └── New refresh token (7 days)                │
+│                                                                 │
+│  6. Retry original request dengan new access token              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Backend Changes
+### Token Comparison
 
-#### New Dependencies (Cargo.toml)
+| Property | Access Token | Refresh Token |
+|----------|-------------|---------------|
+| **Lifetime** | 15 minutes | 7 days |
+| **Purpose** | API access | Get new access token |
+| **HttpOnly** | ✅ | ✅ |
+| **Secure** | ✅ | ✅ |
+| **SameSite** | None | None |
+| **Path** | `/` | `/auth/refresh` |
+| **Rotation** | No | Yes (on each refresh) |
+
+---
+
+### Backend Implementation
+
+#### Dependencies (Cargo.toml)
 
 ```toml
 jsonwebtoken = "9"
 tower-cookies = "0.11"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "limit"] }
 ```
 
-#### DTOs (`features/auth/dto.rs`)
+#### Config (config.rs)
+
+```rust
+pub struct AuthConfig {
+    pub username: String,
+    pub password: String,
+    pub jwt_secret: String,
+    pub access_token_ttl: i64,      // 900 (15 min)
+    pub refresh_token_ttl: i64,     // 604800 (7 days)
+    pub cookie_domain: String,      // ".vinrul.my.id"
+    pub cookie_secure: bool,        // true
+    pub rate_limit_login: u64,      // 5 attempts per minute
+    pub rate_limit_refresh: u64,    // 10 attempts per minute
+}
+
+impl AuthConfig {
+    pub fn from_env() -> Self {
+        Self {
+            username: std::env::var("DASHBOARD_USERNAME")
+                .unwrap_or_else(|_| "admin".to_string()),
+            password: std::env::var("DASHBOARD_PASSWORD")
+                .expect("DASHBOARD_PASSWORD must be set"),
+            jwt_secret: std::env::var("JWT_SECRET")
+                .expect("JWT_SECRET must be set"),
+            access_token_ttl: std::env::var("ACCESS_TOKEN_TTL")
+                .unwrap_or_else(|_| "900".to_string())
+                .parse()
+                .unwrap_or(900),
+            refresh_token_ttl: std::env::var("REFRESH_TOKEN_TTL")
+                .unwrap_or_else(|_| "604800".to_string())
+                .parse()
+                .unwrap_or(604800),
+            cookie_domain: std::env::var("COOKIE_DOMAIN")
+                .unwrap_or_else(|_| ".vinrul.my.id".to_string()),
+            cookie_secure: std::env::var("COOKIE_SECURE")
+                .unwrap_or_else(|_| "true".to_string())
+                .parse()
+                .unwrap_or(true),
+            rate_limit_login: std::env::var("RATE_LIMIT_LOGIN")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .unwrap_or(5),
+            rate_limit_refresh: std::env::var("RATE_LIMIT_REFRESH")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse()
+                .unwrap_or(10),
+        }
+    }
+}
+```
+
+#### DTOs (features/auth/dto.rs)
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -90,10 +174,20 @@ pub struct LoginResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Claims {
+pub struct AccessTokenClaims {
     pub sub: String,      // username
     pub exp: i64,         // expiration timestamp
     pub iat: i64,         // issued at
+    pub token_type: String, // "access"
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RefreshTokenClaims {
+    pub sub: String,      // username
+    pub exp: i64,         // expiration timestamp
+    pub iat: i64,         // issued at
+    pub token_type: String, // "refresh"
+    pub jti: String,      // unique token ID (for rotation tracking)
 }
 
 #[derive(Debug, Serialize)]
@@ -102,7 +196,79 @@ pub struct UserInfo {
 }
 ```
 
-#### Handler (`features/auth/handler.rs`)
+#### Token Generation (features/auth/token.rs)
+
+```rust
+use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey};
+use uuid::Uuid;
+use super::dto::*;
+
+const ACCESS_TOKEN_SECRET: &str = "access-secret";  // Load from config
+const REFRESH_TOKEN_SECRET: &str = "refresh-secret"; // Load from config
+
+pub fn generate_access_token(username: &str, ttl: i64) -> Result<String, anyhow::Error> {
+    let claims = AccessTokenClaims {
+        sub: username.to_string(),
+        exp: chrono::Utc::now().timestamp() + ttl,
+        iat: chrono::Utc::now().timestamp(),
+        token_type: "access".to_string(),
+    };
+    
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(ACCESS_TOKEN_SECRET.as_bytes()),
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to generate access token: {}", e))
+}
+
+pub fn generate_refresh_token(username: &str, ttl: i64) -> Result<String, anyhow::Error> {
+    let claims = RefreshTokenClaims {
+        sub: username.to_string(),
+        exp: chrono::Utc::now().timestamp() + ttl,
+        iat: chrono::Utc::now().timestamp(),
+        token_type: "refresh".to_string(),
+        jti: Uuid::new_v4().to_string(),  // Unique ID for rotation
+    };
+    
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(REFRESH_TOKEN_SECRET.as_bytes()),
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to generate refresh token: {}", e))
+}
+
+pub fn verify_access_token(token: &str) -> Result<AccessTokenClaims, anyhow::Error> {
+    let token_data = decode::<AccessTokenClaims>(
+        token,
+        &DecodingKey::from_secret(ACCESS_TOKEN_SECRET.as_bytes()),
+        &Validation::default(),
+    )?;
+    
+    if token_data.claims.token_type != "access" {
+        return Err(anyhow::anyhow!("Invalid token type"));
+    }
+    
+    Ok(token_data.claims)
+}
+
+pub fn verify_refresh_token(token: &str) -> Result<RefreshTokenClaims, anyhow::Error> {
+    let token_data = decode::<RefreshTokenClaims>(
+        token,
+        &DecodingKey::from_secret(REFRESH_TOKEN_SECRET.as_bytes()),
+        &Validation::default(),
+    )?;
+    
+    if token_data.claims.token_type != "refresh" {
+        return Err(anyhow::anyhow!("Invalid token type"));
+    }
+    
+    Ok(token_data.claims)
+}
+```
+
+#### Handler (features/auth/handler.rs)
 
 ```rust
 use axum::{Json, Extension, http::StatusCode};
@@ -110,9 +276,10 @@ use tower_cookies::Cookies;
 use std::sync::Arc;
 use crate::AppState;
 use super::dto::*;
+use super::token::*;
 
-const COOKIE_NAME: &str = "hermes_token";
-const JWT_SECRET: &str = "change-me-in-production"; // TODO: load from env
+const ACCESS_COOKIE: &str = "access_token";
+const REFRESH_COOKIE: &str = "refresh_token";
 
 pub async fn login(
     Extension(state): Extension<Arc<AppState>>,
@@ -124,20 +291,38 @@ pub async fn login(
         return Err(StatusCode::UNAUTHORIZED);
     }
     
-    // Generate JWT
-    let token = generate_token(&payload.username)?;
+    let username = &payload.username;
+    let config = &state.config.auth;
     
-    // Set HttpOnly cookie
-    let cookie = tower_cookies::Cookie::build((COOKIE_NAME, token))
-    .domain(".vinrul.my.id")  // Allow cookie for all subdomains
+    // Generate tokens
+    let access_token = generate_access_token(username, config.access_token_ttl)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    let refresh_token = generate_refresh_token(username, config.refresh_token_ttl)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // Set access token cookie
+    let access_cookie = tower_cookies::Cookie::build((ACCESS_COOKIE, access_token))
+        .domain(&config.cookie_domain)
         .path("/")
-        .http_only(true)      // Not accessible via JavaScript
-        .secure(true)         // HTTPS only (set false for local dev)
+        .http_only(true)
+        .secure(config.cookie_secure)
         .same_site(tower_cookies::SameSite::None)
-        .max_age(time::Duration::hours(24))
+        .max_age(time::Duration::seconds(config.access_token_ttl))
         .build();
     
-    cookies.add(cookie);
+    // Set refresh token cookie
+    let refresh_cookie = tower_cookies::Cookie::build((REFRESH_COOKIE, refresh_token))
+        .domain(&config.cookie_domain)
+        .path("/auth/refresh")  // Only sent to refresh endpoint
+        .http_only(true)
+        .secure(config.cookie_secure)
+        .same_site(tower_cookies::SameSite::None)
+        .max_age(time::Duration::seconds(config.refresh_token_ttl))
+        .build();
+    
+    cookies.add(access_cookie);
+    cookies.add(refresh_cookie);
     
     Ok(Json(LoginResponse {
         success: true,
@@ -145,17 +330,82 @@ pub async fn login(
     }))
 }
 
-pub async fn logout(cookies: Cookies) -> Json<LoginResponse> {
-    // Remove cookie
-    let cookie = tower_cookies::Cookie::build((COOKIE_NAME, ""))
-    .domain(".vinrul.my.id")  // Allow cookie for all subdomains
+pub async fn refresh(
+    Extension(state): Extension<Arc<AppState>>,
+    cookies: Cookies,
+) -> Result<Json<LoginResponse>, StatusCode> {
+    // Get refresh token from cookie
+    let refresh_token = cookies
+        .get(REFRESH_COOKIE)
+        .map(|c| c.value().to_string())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    // Verify refresh token
+    let claims = verify_refresh_token(&refresh_token)
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    
+    let username = &claims.sub;
+    let config = &state.config.auth;
+    
+    // Generate NEW tokens (rotation)
+    let new_access_token = generate_access_token(username, config.access_token_ttl)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    let new_refresh_token = generate_refresh_token(username, config.refresh_token_ttl)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // Set new access token cookie
+    let access_cookie = tower_cookies::Cookie::build((ACCESS_COOKIE, new_access_token))
+        .domain(&config.cookie_domain)
         .path("/")
         .http_only(true)
-        .secure(true)
+        .secure(config.cookie_secure)
+        .same_site(tower_cookies::SameSite::None)
+        .max_age(time::Duration::seconds(config.access_token_ttl))
+        .build();
+    
+    // Set new refresh token cookie (rotation!)
+    let refresh_cookie = tower_cookies::Cookie::build((REFRESH_COOKIE, new_refresh_token))
+        .domain(&config.cookie_domain)
+        .path("/auth/refresh")
+        .http_only(true)
+        .secure(config.cookie_secure)
+        .same_site(tower_cookies::SameSite::None)
+        .max_age(time::Duration::seconds(config.refresh_token_ttl))
+        .build();
+    
+    cookies.add(access_cookie);
+    cookies.add(refresh_cookie);
+    
+    Ok(Json(LoginResponse {
+        success: true,
+        message: "Token refreshed".to_string(),
+    }))
+}
+
+pub async fn logout(cookies: Cookies, Extension(state): Extension<Arc<AppState>>) -> Json<LoginResponse> {
+    let config = &state.config.auth;
+    
+    // Clear access token
+    let access_cookie = tower_cookies::Cookie::build((ACCESS_COOKIE, ""))
+        .domain(&config.cookie_domain)
+        .path("/")
+        .http_only(true)
+        .secure(config.cookie_secure)
         .max_age(time::Duration::seconds(0))
         .build();
     
-    cookies.remove(cookie);
+    // Clear refresh token
+    let refresh_cookie = tower_cookies::Cookie::build((REFRESH_COOKIE, ""))
+        .domain(&config.cookie_domain)
+        .path("/auth/refresh")
+        .http_only(true)
+        .secure(config.cookie_secure)
+        .max_age(time::Duration::seconds(0))
+        .build();
+    
+    cookies.remove(access_cookie);
+    cookies.remove(refresh_cookie);
     
     Json(LoginResponse {
         success: true,
@@ -164,7 +414,7 @@ pub async fn logout(cookies: Cookies) -> Json<LoginResponse> {
 }
 
 pub async fn me(
-    Extension(claims): Extension<Claims>,
+    Extension(claims): Extension<AccessTokenClaims>,
 ) -> Json<UserInfo> {
     Json(UserInfo { username: claims.sub })
 }
@@ -173,24 +423,9 @@ fn verify_credentials(state: &AppState, username: &str, password: &str) -> bool 
     state.config.auth.username == username && 
     state.config.auth.password == password
 }
-
-fn generate_token(username: &str) -> Result<String, StatusCode> {
-    let claims = Claims {
-        sub: username.to_string(),
-        exp: chrono::Utc::now().timestamp() + 86400, // 24 hours
-        iat: chrono::Utc::now().timestamp(),
-    };
-    
-    jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(JWT_SECRET.as_bytes()),
-    )
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-}
 ```
 
-#### Middleware (`features/auth/middleware.rs`)
+#### Middleware (features/auth/middleware.rs)
 
 ```rust
 use axum::{
@@ -203,59 +438,216 @@ use axum::{
 use tower_cookies::Cookies;
 use std::sync::Arc;
 use crate::AppState;
-use super::dto::Claims;
+use super::dto::AccessTokenClaims;
+use super::token::verify_access_token;
 
-const COOKIE_NAME: &str = "hermes_token";
-const JWT_SECRET: &str = "change-me-in-production";
+const ACCESS_COOKIE: &str = "access_token";
 
 pub async fn auth_middleware(
-    Extension(state): Extension<Arc<AppState>>,
+    Extension(_state): Extension<Arc<AppState>>,
     cookies: Cookies,
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Skip auth for public routes
     let path = request.uri().path();
-    if path.starts_with("/api/auth/") || path == "/api/health" {
+    if path.starts_with("/api/auth/login") || 
+       path.starts_with("/api/auth/refresh") ||
+       path == "/api/health" {
         return Ok(next.run(request).await);
     }
     
-    // Extract token from cookie
-    let token = cookies
-        .get(COOKIE_NAME)
+    // Extract access token from cookie
+    let access_token = cookies
+        .get(ACCESS_COOKIE)
         .map(|cookie| cookie.value().to_string())
         .ok_or(StatusCode::UNAUTHORIZED)?;
     
     // Verify token
-    let claims = verify_token(&token)?;
+    let claims = verify_access_token(&access_token)
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
     
     // Add claims to request extensions
     request.extensions_mut().insert(claims);
     
     Ok(next.run(request).await)
 }
+```
 
-fn verify_token(token: &str) -> Result<Claims, StatusCode> {
-    let token_data = jsonwebtoken::decode::<Claims>(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(JWT_SECRET.as_bytes()),
-        &jsonwebtoken::Validation::default(),
-    )
-    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+#### Origin/Referer Validation (features/auth/validation.rs)
+
+```rust
+use axum::{
+    extract::Request,
+    middleware::Next,
+    response::Response,
+    http::StatusCode,
+    Extension,
+};
+use std::sync::Arc;
+use crate::AppState;
+
+pub async fn origin_validator(
+    Extension(state): Extension<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    // Get Origin or Referer header
+    let origin = request.headers()
+        .get("origin")
+        .or_else(|| request.headers().get("referer"))
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_string());
     
-    Ok(token_data.claims)
+    // Validate origin
+    if let Some(origin) = origin {
+        let allowed_origin = format!("https://{}", state.config.frontend_domain);
+        
+        if !origin.starts_with(&allowed_origin) {
+            tracing::warn!("Blocked request from invalid origin: {}", origin);
+            return Err(StatusCode::FORBIDDEN);
+        }
+    } else {
+        // No origin/referer header — could be direct API call
+        // Allow if it's a health check or other public endpoint
+        let path = request.uri().path();
+        if !path.starts_with("/api/auth/") && path != "/api/health" {
+            tracing::warn!("Blocked request without origin header");
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
+    
+    Ok(next.run(request).await)
 }
 ```
 
-#### Router Update (`main.rs`)
+#### Rate Limiting (features/auth/rate_limit.rs)
+
+```rust
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use std::time::{Duration, Instant};
+
+struct RateLimitEntry {
+    count: u64,
+    window_start: Instant,
+}
+
+pub struct RateLimiter {
+    limits: Arc<Mutex<HashMap<String, RateLimitEntry>>>,
+    max_requests: u64,
+    window_duration: Duration,
+}
+
+impl RateLimiter {
+    pub fn new(max_requests: u64, window_duration: Duration) -> Self {
+        Self {
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            max_requests,
+            window_duration,
+        }
+    }
+    
+    pub async fn check(&self, key: &str) -> bool {
+        let mut limits = self.limits.lock().await;
+        let now = Instant::now();
+        
+        let entry = limits.entry(key.to_string()).or_insert(RateLimitEntry {
+            count: 0,
+            window_start: now,
+        });
+        
+        // Reset window if expired
+        if now.duration_since(entry.window_start) > self.window_duration {
+            entry.count = 0;
+            entry.window_start = now;
+        }
+        
+        // Check limit
+        if entry.count >= self.max_requests {
+            return false;  // Rate limited
+        }
+        
+        entry.count += 1;
+        true  // Allowed
+    }
+}
+
+// In main.rs or AppState
+pub fn create_rate_limiters() -> (RateLimiter, RateLimiter) {
+    let login_limiter = RateLimiter::new(5, Duration::from_secs(60));    // 5 per minute
+    let refresh_limiter = RateLimiter::new(10, Duration::from_secs(60)); // 10 per minute
+    
+    (login_limiter, refresh_limiter)
+}
+```
+
+#### Rate Limit Middleware (features/auth/rate_limit_middleware.rs)
+
+```rust
+use axum::{
+    extract::ConnectInfo,
+    extract::Request,
+    middleware::Next,
+    response::Response,
+    http::StatusCode,
+    Extension,
+};
+use std::net::SocketAddr;
+use super::rate_limit::RateLimiter;
+use std::sync::Arc;
+
+pub async fn login_rate_limiter(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Extension(limiter): Extension<Arc<RateLimiter>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let key = format!("login:{}", addr.ip());
+    
+    if !limiter.check(&key).await {
+        tracing::warn!("Rate limited login attempt from {}", addr.ip());
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+    
+    Ok(next.run(request).await)
+}
+
+pub async fn refresh_rate_limiter(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Extension(limiter): Extension<Arc<RateLimiter>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let key = format!("refresh:{}", addr.ip());
+    
+    if !limiter.check(&key).await {
+        tracing::warn!("Rate limited refresh attempt from {}", addr.ip());
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+    
+    Ok(next.run(request).await)
+}
+```
+
+#### Router Update (main.rs)
 
 ```rust
 use tower_cookies::CookieManagerLayer;
 use features::{sessions, stats, config, cron, ws, auth};
 
+// Create rate limiters
+let (login_limiter, refresh_limiter) = auth::rate_limit::create_rate_limiters();
+
 let app = Router::new()
-    // Public routes (no auth)
+    // Public routes (no auth, but rate limited)
     .route("/api/auth/login", post(auth::handler::login))
+        .layer(axum::middleware::from_fn(auth::rate_limit_middleware::login_rate_limiter))
+        .layer(Extension(Arc::new(login_limiter)))
+    .route("/api/auth/refresh", post(auth::handler::refresh))
+        .layer(axum::middleware::from_fn(auth::rate_limit_middleware::refresh_rate_limiter))
+        .layer(Extension(Arc::new(refresh_limiter)))
     .route("/api/auth/logout", post(auth::handler::logout))
     .route("/api/health", get(shared::health::handler))
     
@@ -267,83 +659,88 @@ let app = Router::new()
     .route("/api/cron", get(cron::handler::list_jobs))
     .route("/ws", get(ws::handler::ws_handler))
     
-    // Middleware layers
+    // Middleware layers (order matters!)
     .layer(axum::middleware::from_fn(auth::middleware::auth_middleware))
-    .layer(CookieManagerLayer::new())  // Cookie parsing
+    .layer(axum::middleware::from_fn(auth::validation::origin_validator))
+    .layer(CookieManagerLayer::new())
     .layer(Extension(state))
     .layer(CorsLayer::permissive()
-        .allow_credentials(true));  // Required for cookies
-```
-
-#### Config Changes (`config.rs`)
-
-```rust
-pub struct AuthConfig {
-    pub username: String,
-    pub password: String,
-    pub jwt_secret: String,
-    pub cookie_secure: bool,    // true for HTTPS, false for local dev
-}
-
-impl AuthConfig {
-    pub fn from_env() -> Self {
-        Self {
-            username: std::env::var("DASHBOARD_USERNAME")
-                .unwrap_or_else(|_| "admin".to_string()),
-            password: std::env::var("DASHBOARD_PASSWORD")
-                .expect("DASHBOARD_PASSWORD must be set"),
-            jwt_secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "change-me-in-production".to_string()),
-            cookie_secure: std::env::var("COOKIE_SECURE")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse()
-                .unwrap_or(false),
-        }
-    }
-}
+        .allow_credentials(true));
 ```
 
 ---
 
-### Frontend Changes
+### Frontend Implementation
 
-#### Updated Feature: `features/auth/`
-
-```
-features/auth/
-├── components/
-│   └── LoginForm.svelte
-├── types.ts
-├── api.ts
-├── store.ts
-└── index.ts
-```
-
-#### Types (`features/auth/types.ts`)
+#### Auth Store (features/auth/store.ts)
 
 ```typescript
-export interface LoginRequest {
-    username: string;
-    password: string;
+import { writable } from 'svelte/store';
+import type { AuthState, UserInfo } from './types';
+import { checkAuth, refreshToken, logout as apiLogout } from './api';
+
+function createAuthStore() {
+    const { subscribe, set, update } = writable<AuthState>({
+        isAuthenticated: false,
+        user: null,
+        loading: true,
+    });
+    
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    
+    return {
+        subscribe,
+        
+        async check() {
+            set({ isAuthenticated: false, user: null, loading: true });
+            
+            const user = await checkAuth();
+            
+            if (user) {
+                set({ isAuthenticated: true, user, loading: false });
+                this.scheduleRefresh();  // Auto-refresh before expiry
+            } else {
+                set({ isAuthenticated: false, user: null, loading: false });
+            }
+        },
+        
+        setUser(user: UserInfo) {
+            set({ isAuthenticated: true, user, loading: false });
+            this.scheduleRefresh();
+        },
+        
+        scheduleRefresh() {
+            // Clear existing timer
+            if (refreshTimer) {
+                clearTimeout(refreshTimer);
+            }
+            
+            // Refresh 1 minute before access token expires (14 min)
+            refreshTimer = setTimeout(async () => {
+                const success = await refreshToken();
+                if (success) {
+                    this.scheduleRefresh();  // Schedule next refresh
+                } else {
+                    // Refresh failed, logout
+                    await this.logout();
+                }
+            }, 14 * 60 * 1000);  // 14 minutes
+        },
+        
+        async logout() {
+            if (refreshTimer) {
+                clearTimeout(refreshTimer);
+            }
+            await apiLogout();
+            set({ isAuthenticated: false, user: null, loading: false });
+        },
+    };
 }
 
-export interface LoginResponse {
-    success: boolean;
-    message: string;
-}
-
-export interface UserInfo {
-    username: string;
-}
-
-export interface AuthState {
-    isAuthenticated: boolean;
-    user: UserInfo | null;
-    loading: boolean;
-}
+export const auth = createAuthStore();
 ```
 
-#### API (`features/auth/api.ts`)
+#### Auth API (features/auth/api.ts)
 
 ```typescript
 import { API_BASE_URL } from '$lib/shared/utils/api';
@@ -353,7 +750,7 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',  // Important: include cookies
+        credentials: 'include',  // Include cookies
         body: JSON.stringify(credentials),
     });
     
@@ -364,6 +761,19 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     return res.json();
 }
 
+export async function refreshToken(): Promise<boolean> {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',  // Include refresh token cookie
+        });
+        
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 export async function logout(): Promise<void> {
     await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
@@ -371,218 +781,42 @@ export async function logout(): Promise<void> {
     });
 }
 
-export async function getUserInfo(): Promise<UserInfo> {
-    const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        credentials: 'include',  // Send cookie
-    });
-    
-    if (!res.ok) {
-        throw new Error('Unauthorized');
-    }
-    
-    return res.json();
-}
-
-// Check if user is authenticated (try to fetch user info)
 export async function checkAuth(): Promise<UserInfo | null> {
     try {
-        return await getUserInfo();
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            credentials: 'include',
+        });
+        
+        if (!res.ok) {
+            // Try refresh if 401
+            if (res.status === 401) {
+                const refreshed = await refreshToken();
+                if (refreshed) {
+                    // Retry with new token
+                    const retryRes = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                        credentials: 'include',
+                    });
+                    if (retryRes.ok) {
+                        return retryRes.json();
+                    }
+                }
+            }
+            return null;
+        }
+        
+        return res.json();
     } catch {
         return null;
     }
 }
 ```
 
-#### Store (`features/auth/store.ts`)
+#### API Wrapper with Auto-Refresh (shared/utils/api.ts)
 
 ```typescript
-import { writable } from 'svelte/store';
-import type { AuthState, UserInfo } from './types';
-import { checkAuth, logout as apiLogout } from './api';
+import { refreshToken } from '$lib/features/auth/api';
 
-function createAuthStore() {
-    const { subscribe, set, update } = writable<AuthState>({
-        isAuthenticated: false,
-        user: null,
-        loading: true,  // Start with loading=true
-    });
-    
-    return {
-        subscribe,
-        
-        // Check authentication status (call on app init)
-        async check() {
-            set({ isAuthenticated: false, user: null, loading: true });
-            
-            const user = await checkAuth();
-            
-            if (user) {
-                set({ isAuthenticated: true, user, loading: false });
-            } else {
-                set({ isAuthenticated: false, user: null, loading: false });
-            }
-        },
-        
-        // Set authenticated after login
-        setUser(user: UserInfo) {
-            set({ isAuthenticated: true, user, loading: false });
-        },
-        
-        // Logout
-        async logout() {
-            await apiLogout();
-            set({ isAuthenticated: false, user: null, loading: false });
-        },
-    };
-}
-
-export const auth = createAuthStore();
-```
-
-#### Login Form (`features/auth/components/LoginForm.svelte`)
-
-```svelte
-<script lang="ts">
-    import { auth } from '../store';
-    import { login } from '../api';
-    import { goto } from '$app/navigation';
-    
-    let username = $state('');
-    let password = $state('');
-    let error = $state('');
-    let loading = $state(false);
-    
-    async function handleSubmit() {
-        loading = true;
-        error = '';
-        
-        try {
-            await login({ username, password });
-            
-            // Fetch user info and update store
-            const user = await getUserInfo();
-            auth.setUser(user);
-            
-            // Redirect to dashboard
-            goto('/');
-        } catch (e) {
-            error = 'Invalid username or password';
-        } finally {
-            loading = false;
-        }
-    }
-</script>
-
-<div class="min-h-screen flex items-center justify-center bg-gray-100">
-    <div class="bg-white p-8 rounded-xl shadow-sm w-96">
-        <h1 class="text-2xl font-bold mb-6 text-center">🤖 Hermes Dashboard</h1>
-        
-        <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Username
-                </label>
-                <input
-                    type="text"
-                    bind:value={username}
-                    class="w-full px-4 py-2 border rounded-lg"
-                    required
-                />
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                </label>
-                <input
-                    type="password"
-                    bind:value={password}
-                    class="w-full px-4 py-2 border rounded-lg"
-                    required
-                />
-            </div>
-            
-            {#if error}
-                <p class="text-red-500 text-sm">{error}</p>
-            {/if}
-            
-            <button
-                type="submit"
-                disabled={loading}
-                class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-                {loading ? 'Logging in...' : 'Login'}
-            </button>
-        </form>
-    </div>
-</div>
-```
-
-#### Login Page (`routes/login/+page.svelte`)
-
-```svelte
-<script lang="ts">
-    import LoginForm from '$lib/features/auth/components/LoginForm.svelte';
-    import { auth } from '$lib/features/auth/store';
-    import { goto } from '$app/navigation';
-    
-    // Redirect to dashboard if already authenticated
-    $effect(() => {
-        if ($auth.isAuthenticated) {
-            goto('/');
-        }
-    });
-</script>
-
-{#if $auth.loading}
-    <div class="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
-    </div>
-{:else if !$auth.isAuthenticated}
-    <LoginForm />
-{/if}
-```
-
-#### Protected Layout (`routes/+layout.svelte`)
-
-```svelte
-<script lang="ts">
-    import { auth } from '$lib/features/auth/store';
-    import { goto } from '$app/navigation';
-    import { page } from '$app/stores';
-    import { onMount } from 'svelte';
-    
-    // Public routes that don't require auth
-    const publicRoutes = ['/login'];
-    
-    // Check auth on mount
-    onMount(async () => {
-        await auth.check();
-    });
-    
-    // Redirect if not authenticated
-    $effect(() => {
-        const isPublicRoute = publicRoutes.includes($page.url.pathname);
-        
-        if (!$auth.loading && !$auth.isAuthenticated && !isPublicRoute) {
-            goto('/login');
-        }
-    });
-</script>
-
-{#if $auth.loading}
-    <div class="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
-    </div>
-{:else if $auth.isAuthenticated || publicRoutes.includes($page.url.pathname)}
-    <slot />
-{/if}
-```
-
-#### API Wrapper Update (`shared/utils/api.ts`)
-
-```typescript
-export const API_BASE_URL = 'https://hermes.vinrul.my.id:3001';
+export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
 
 export async function apiFetch<T>(
     path: string,
@@ -590,15 +824,34 @@ export async function apiFetch<T>(
 ): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
         ...options,
-        credentials: 'include',  // Always include cookies
+        credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
             ...((options.headers as Record<string, string>) || {}),
         },
     });
     
+    // If 401, try to refresh
     if (res.status === 401) {
-        // Redirect to login
+        const refreshed = await refreshToken();
+        
+        if (refreshed) {
+            // Retry with new token
+            const retryRes = await fetch(`${API_BASE_URL}${path}`, {
+                ...options,
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...((options.headers as Record<string, string>) || {}),
+                },
+            });
+            
+            if (retryRes.ok) {
+                return retryRes.json();
+            }
+        }
+        
+        // Refresh failed, redirect to login
         window.location.href = '/login';
         throw new Error('Unauthorized');
     }
@@ -613,69 +866,97 @@ export async function apiFetch<T>(
 
 ---
 
-### Cookie Configuration
+### CORS Configuration
 
-| Attribute | Value | Purpose |
-|-----------|-------|---------|
-| `name` | `hermes_token` | Cookie name |
-| `value` | JWT token | Authentication data |
-| `path` | `/` | Available for all paths |
-| `httpOnly` | `true` | **Not accessible via JavaScript** (XSS-safe) |
-| `secure` | `true` (prod) / `false` (dev) | HTTPS only |
-| `sameSite` | `Lax` | CSRF protection |
-| `maxAge` | `86400` (24 hours) | Auto-expire |
+```rust
+use tower_http::cors::{CorsLayer, AllowOrigin, AllowMethods, AllowHeaders};
+use http::Method;
+
+let cors = CorsLayer::new()
+    // Allow specific origin (NOT wildcard!)
+    .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
+    // Allow credentials
+    .allow_credentials(true)
+    // Allow methods
+    .allow_methods(AllowMethods::from(vec![
+        Method::GET,
+        Method::POST,
+        Method::PUT,
+        Method::DELETE,
+        Method::OPTIONS,
+    ]))
+    // Allow headers
+    .allow_headers(AllowHeaders::from(vec![
+        "content-type".parse().unwrap(),
+        "cookie".parse().unwrap(),
+    ]));
+```
+
+**Important:** 
+- ❌ Jangan pakai `AllowOrigin::any()` (wildcard)
+- ✅ Pakai `AllowOrigin::exact()` (specific origin)
+- ✅ Set `allow_credentials(true)` untuk cookies
 
 ---
 
-### Security Comparison
+### Rate Limiting
 
-| Attack Vector | localStorage | HttpOnly Cookie |
-|---------------|--------------|-----------------|
-| **XSS** | ❌ Token stolen | ✅ Safe (can't read) |
-| **CSRF** | ✅ Safe (no auto-send) | ⚠️ Need SameSite |
-| **Network (HTTP)** | ❌ Exposed | ❌ Exposed |
-| **Network (HTTPS)** | ✅ Encrypted | ✅ Encrypted |
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `POST /api/auth/login` | 5 attempts | 1 minute |
+| `POST /api/auth/refresh` | 10 attempts | 1 minute |
 
-**Mitigations:**
-- XSS → HttpOnly cookie (can't access via JS)
-- CSRF → SameSite=None (blocks cross-site POST)
-- Network → HTTPS (encrypt in transit)
+**Rate Limit Headers:**
+```
+X-RateLimit-Limit: 5
+X-RateLimit-Remaining: 3
+X-RateLimit-Reset: 1620000000
+```
+
+**Response when limited:**
+```json
+{
+    "error": "Too many requests",
+    "message": "Rate limit exceeded. Please try again later.",
+    "retry_after": 45
+}
+```
 
 ---
 
 ### Environment Variables
 
 ```bash
-# Backend
+# Auth
 DASHBOARD_USERNAME=admin
-DASHBOARD_PASSWORD=your-secure-password
-JWT_SECRET=your-random-secret-key-at-least-32-chars
-COOKIE_SECURE=false  # Set true for HTTPS production
+DASHBOARD_PASSWORD=your-s... Day)
+
+# Cookie
+COOKIE_DOMAIN=.vinrul.my.id
+COOKIE_SECURE=true
+
+# Rate Limiting
+RATE_LIMIT_LOGIN=5        # 5 attempts per minute
+RATE_LIMIT_REFRESH=10     # 10 attempts per minute
+
+# CORS
+FRONTEND_URL=https://hermes.vinrul.my.id
 ```
 
 ---
 
-### CORS Configuration (Important for Cookies)
+### Security Features Summary
 
-When using cookies, CORS must be configured correctly:
-
-```rust
-use tower_http::cors::{CorsLayer, AllowOrigin};
-
-let cors = CorsLayer::new()
-    .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
-    .allow_credentials(true)
-    .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-    .allow_headers([HeaderName::from_static("content-type")]);
-```
-
-**Frontend `fetch` must include:**
-```typescript
-fetch(url, {
-    credentials: 'include',  // CRITICAL for cookies
-    // ...
-});
-```
+| Feature | Implementation | Status |
+|---------|---------------|--------|
+| **Access Token** | 15 min, HttpOnly, Secure, SameSite=None | ✅ |
+| **Refresh Token** | 7 days, HttpOnly, Secure, SameSite=None, Path=/auth/refresh | ✅ |
+| **Token Rotation** | New refresh token on each refresh | ✅ |
+| **CORS** | Specific origin, credentials true | ✅ |
+| **Origin Validation** | Check Origin/Referer header | ✅ |
+| **Rate Limiting** | Login: 5/min, Refresh: 10/min | ✅ |
+| **XSS Protection** | HttpOnly cookies | ✅ |
+| **CSRF Protection** | SameSite=None + Origin validation | ✅ |
 
 ---
 
@@ -683,70 +964,57 @@ fetch(url, {
 
 **1. Test Login:**
 ```bash
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST https://api-hermes.vinrul.my.id/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"your-password"}' \
   -c cookies.txt -v
 
-# Should see Set-Cookie header in response
+# Should see TWO Set-Cookie headers:
+# Set-Cookie: access_token=***; ...; Max-Age=900
+# Set-Cookie: refresh_token=***; ...; Path=/auth/refresh; Max-Age=604800
 ```
 
 **2. Test Protected Route:**
 ```bash
-curl http://localhost:3001/api/sessions \
+curl https://api-hermes.vinrul.my.id/api/sessions \
   -b cookies.txt
 
-# Should return data if cookie is valid
+# Should return data
 ```
 
-**3. Test Unauthorized:**
+**3. Test Token Refresh:**
 ```bash
-curl http://localhost:3001/api/sessions
+# Wait 15+ minutes (or delete access_token from cookies.txt)
+curl -X POST https://api-hermes.vinrul.my.id/api/auth/refresh \
+  -b cookies.txt -c cookies.txt -v
 
-# Should return 401
+# Should get new tokens
+```
+
+**4. Test Rate Limiting:**
+```bash
+# Try 6 login attempts quickly
+for i in {1..6}; do
+  curl -X POST https://api-hermes.vinrul.my.id/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"admin","password":"wrong"}' -v
+done
+
+# 6th attempt should return 429 Too Many Requests
+```
+
+**5. Test Origin Validation:**
+```bash
+# Should work (correct origin)
+curl https://api-hermes.vinrul.my.id/api/health \
+  -H "Origin: https://hermes.vinrul.my.id" -v
+
+# Should fail (wrong origin)
+curl https://api-hermes.vinrul.my.id/api/health \
+  -H "Origin: https://evil.com" -v
 ```
 
 ---
 
 **Last updated:** 2026-05-29
-**Security:** JWT + HttpOnly Cookie
-
----
-
-## 🌐 Cross-Origin Configuration
-
-Karena Frontend (`hermes.vinrul.my.id`) dan Backend (`api-hermes.vinrul.my.id`) adalah **different origins**, perlu konfigurasi khusus.
-
-### CORS (Backend)
-
-```rust
-use tower_http::cors::{CorsLayer, AllowOrigin};
-
-let cors = CorsLayer::new()
-    .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
-    .allow_credentials(true)
-    .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
-    .allow_headers(["content-type".parse().unwrap()]);
-```
-
-### Cookie (Cross-Origin)
-
-```rust
-let cookie = Cookie::build(("hermes_token", token))
-    .domain(".vinrul.my.id")  // Works for all subdomains
-    .path("/")
-    .http_only(true)
-    .secure(true)
-    .same_site(tower_cookies::SameSite::None)  // Required for cross-origin
-    .max_age(time::Duration::hours(24))
-    .build();
-```
-
-### Frontend (credentials: include)
-
-```typescript
-const response = await fetch('https://api-hermes.vinrul.my.id/api/...', {
-    credentials: 'include',  // CRITICAL for cross-origin cookies
-});
-```
-
+**Security:** Dual-Token with Refresh Rotation, Rate Limiting, Origin Validation
