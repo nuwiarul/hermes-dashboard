@@ -1,55 +1,75 @@
-## 🔒 Security: JWT Authentication
+## 🔒 Security: JWT Authentication (HttpOnly Cookie)
 
 ### Overview
 
-Dashboard dilindungi JWT (JSON Web Token). User harus login dulu sebelum akses halaman lain. Token disimpan di localStorage dan dikirim di setiap API request via `Authorization: Bearer <token>`.
+Dashboard dilindungi JWT yang disimpan di **HttpOnly Cookie**. Token tidak bisa diakses JavaScript (XSS-proof) dan otomatis terkirim di setiap request.
 
-### Flow
+### Token Storage Comparison
+
+| Method | XSS Safe | CSRF Safe | Auto-send | Implementation |
+|--------|----------|-----------|-----------|----------------|
+| localStorage | ❌ | ✅ | ❌ | Simpel |
+| sessionStorage | ❌ | ✅ | ❌ | Simpel |
+| **HttpOnly Cookie** | ✅ | ⚠️ (need SameSite) | ✅ | Sedang |
+| Memory (JS variable) | ✅ | ✅ | ❌ | Ribet |
+
+**Pilihan: HttpOnly Cookie** — balance antara security dan simplicity.
+
+---
+
+### Auth Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  User buka dashboard                                    │
-│         │                                               │
-│         ▼                                               │
-│  ┌─────────────┐    No token?     ┌──────────────┐    │
-│  │  Check Token │ ──────────────► │  Login Page   │    │
-│  └─────────────┘                  └──────┬───────┘    │
-│         │                                │             │
-│         │ Valid token?                   │ Submit      │
-│         ▼                                ▼             │
-│  ┌─────────────┐                  ┌──────────────┐    │
-│  │  Dashboard   │ ◄────────────── │ POST /api/    │    │
-│  │  (protected) │    Set token    │ auth/login    │    │
-│  └─────────────┘                  └──────────────┘    │
-│         │                                               │
-│         │ Expired token?                                │
-│         ▼                                               │
-│  ┌─────────────┐                                        │
-│  │  Auto       │                                        │
-│  │  Refresh    │                                        │
-│  └─────────────┘                                        │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  1. User buka /login                                            │
+│         │                                                       │
+│         ▼                                                       │
+│  2. Input username + password                                   │
+│         │                                                       │
+│         ▼                                                       │
+│  3. POST /api/auth/login                                        │
+│         │                                                       │
+│         ▼                                                       │
+│  4. Server verify credentials                                   │
+│         │                                                       │
+│         ├─ Invalid → 401 Unauthorized                           │
+│         │                                                       │
+│         └─ Valid → Generate JWT                                 │
+│                   │                                             │
+│                   ▼                                             │
+│  5. Set-Cookie: hermes_token=***; HttpOnly; Secure; SameSite=Lax│
+│                   │                                             │
+│                   ▼                                             │
+│  6. Response: { success: true }                                 │
+│                   │                                             │
+│                   ▼                                             │
+│  7. Browser auto-save cookie                                    │
+│                   │                                             │
+│                   ▼                                             │
+│  8. Redirect ke / (dashboard)                                   │
+│                   │                                             │
+│                   ▼                                             │
+│  9. Subsequent requests auto-include Cookie header              │
+│     Cookie: hermes_token=***                                    │
+│                   │                                             │
+│                   ▼                                             │
+│  10. Server verify token di cookie                              │
+│         │                                                       │
+│         └─ Valid → Return data                                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ### Backend Changes
 
-#### New Feature: `features/auth/`
-
-```
-features/auth/
-├── mod.rs
-├── dto.rs           # LoginRequest, LoginResponse, Claims
-├── handler.rs       # login(), refresh(), me()
-├── middleware.rs     # auth_middleware()
-└── repository.rs    # verify_credentials()
-```
-
-#### Dependencies (add to Cargo.toml)
+#### New Dependencies (Cargo.toml)
 
 ```toml
 jsonwebtoken = "9"
-argon2 = "0.5"  # For password hashing (optional, can use simple hash for v1)
-uuid = { version = "1", features = ["v4"] }
+tower-cookies = "0.11"
 ```
 
 #### DTOs (`features/auth/dto.rs`)
@@ -65,11 +85,11 @@ pub struct LoginRequest {
 
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
-    pub token: String,
-    pub expires_at: i64,
+    pub success: bool,
+    pub message: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,      // username
     pub exp: i64,         // expiration timestamp
@@ -86,12 +106,17 @@ pub struct UserInfo {
 
 ```rust
 use axum::{Json, Extension, http::StatusCode};
+use tower_cookies::Cookies;
 use std::sync::Arc;
 use crate::AppState;
 use super::dto::*;
 
+const COOKIE_NAME: &str = "hermes_token";
+const JWT_SECRET: &str = "change-me-in-production"; // TODO: load from env
+
 pub async fn login(
     Extension(state): Extension<Arc<AppState>>,
+    cookies: Cookies,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, StatusCode> {
     // Verify credentials
@@ -101,9 +126,39 @@ pub async fn login(
     
     // Generate JWT
     let token = generate_token(&payload.username)?;
-    let expires_at = chrono::Utc::now().timestamp() + 3600; // 1 hour
     
-    Ok(Json(LoginResponse { token, expires_at }))
+    // Set HttpOnly cookie
+    let cookie = tower_cookies::Cookie::build((COOKIE_NAME, token))
+        .path("/")
+        .http_only(true)      // Not accessible via JavaScript
+        .secure(true)         // HTTPS only (set false for local dev)
+        .same_site(tower_cookies::SameSite::Lax)
+        .max_age(time::Duration::hours(24))
+        .build();
+    
+    cookies.add(cookie);
+    
+    Ok(Json(LoginResponse {
+        success: true,
+        message: "Login successful".to_string(),
+    }))
+}
+
+pub async fn logout(cookies: Cookies) -> Json<LoginResponse> {
+    // Remove cookie
+    let cookie = tower_cookies::Cookie::build((COOKIE_NAME, ""))
+        .path("/")
+        .http_only(true)
+        .secure(true)
+        .max_age(time::Duration::seconds(0))
+        .build();
+    
+    cookies.remove(cookie);
+    
+    Json(LoginResponse {
+        success: true,
+        message: "Logged out".to_string(),
+    })
 }
 
 pub async fn me(
@@ -113,7 +168,6 @@ pub async fn me(
 }
 
 fn verify_credentials(state: &AppState, username: &str, password: &str) -> bool {
-    // Compare with credentials from config
     state.config.auth.username == username && 
     state.config.auth.password == password
 }
@@ -121,7 +175,7 @@ fn verify_credentials(state: &AppState, username: &str, password: &str) -> bool 
 fn generate_token(username: &str) -> Result<String, StatusCode> {
     let claims = Claims {
         sub: username.to_string(),
-        exp: chrono::Utc::now().timestamp() + 3600,
+        exp: chrono::Utc::now().timestamp() + 86400, // 24 hours
         iat: chrono::Utc::now().timestamp(),
     };
     
@@ -144,30 +198,34 @@ use axum::{
     http::StatusCode,
     Extension,
 };
+use tower_cookies::Cookies;
 use std::sync::Arc;
 use crate::AppState;
 use super::dto::Claims;
 
+const COOKIE_NAME: &str = "hermes_token";
+const JWT_SECRET: &str = "change-me-in-production";
+
 pub async fn auth_middleware(
     Extension(state): Extension<Arc<AppState>>,
+    cookies: Cookies,
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Skip auth for login endpoint
-    if request.uri().path() == "/api/auth/login" {
+    // Skip auth for public routes
+    let path = request.uri().path();
+    if path.starts_with("/api/auth/") || path == "/api/health" {
         return Ok(next.run(request).await);
     }
     
-    // Extract token from Authorization header
-    let token = request
-        .headers()
-        .get("Authorization")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
+    // Extract token from cookie
+    let token = cookies
+        .get(COOKIE_NAME)
+        .map(|cookie| cookie.value().to_string())
         .ok_or(StatusCode::UNAUTHORIZED)?;
     
     // Verify token
-    let claims = verify_token(token)?;
+    let claims = verify_token(&token)?;
     
     // Add claims to request extensions
     request.extensions_mut().insert(claims);
@@ -187,6 +245,34 @@ fn verify_token(token: &str) -> Result<Claims, StatusCode> {
 }
 ```
 
+#### Router Update (`main.rs`)
+
+```rust
+use tower_cookies::CookieManagerLayer;
+use features::{sessions, stats, config, cron, ws, auth};
+
+let app = Router::new()
+    // Public routes (no auth)
+    .route("/api/auth/login", post(auth::handler::login))
+    .route("/api/auth/logout", post(auth::handler::logout))
+    .route("/api/health", get(shared::health::handler))
+    
+    // Protected routes (auth required)
+    .route("/api/auth/me", get(auth::handler::me))
+    .route("/api/sessions", get(sessions::handler::list))
+    .route("/api/stats", get(stats::handler::overview))
+    .route("/api/config", get(config::handler::get_config))
+    .route("/api/cron", get(cron::handler::list_jobs))
+    .route("/ws", get(ws::handler::ws_handler))
+    
+    // Middleware layers
+    .layer(axum::middleware::from_fn(auth::middleware::auth_middleware))
+    .layer(CookieManagerLayer::new())  // Cookie parsing
+    .layer(Extension(state))
+    .layer(CorsLayer::permissive()
+        .allow_credentials(true));  // Required for cookies
+```
+
 #### Config Changes (`config.rs`)
 
 ```rust
@@ -194,6 +280,7 @@ pub struct AuthConfig {
     pub username: String,
     pub password: String,
     pub jwt_secret: String,
+    pub cookie_secure: bool,    // true for HTTPS, false for local dev
 }
 
 impl AuthConfig {
@@ -205,45 +292,20 @@ impl AuthConfig {
                 .expect("DASHBOARD_PASSWORD must be set"),
             jwt_secret: std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "change-me-in-production".to_string()),
+            cookie_secure: std::env::var("COOKIE_SECURE")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse()
+                .unwrap_or(false),
         }
     }
 }
-
-pub struct AppConfig {
-    pub hermes_home: PathBuf,
-    pub port: u16,
-    pub auth: AuthConfig,
-}
-```
-
-#### Router Update (`main.rs`)
-
-```rust
-use features::{sessions, stats, config, cron, ws, auth};
-
-let app = Router::new()
-    // Public routes (no auth)
-    .route("/api/auth/login", post(auth::handler::login))
-    .route("/api/health", get(shared::health::handler))
-    
-    // Protected routes (auth required)
-    .route("/api/sessions", get(sessions::handler::list))
-    .route("/api/stats", get(stats::handler::overview))
-    .route("/api/config", get(config::handler::get_config))
-    .route("/api/cron", get(cron::handler::list_jobs))
-    .route("/ws", get(ws::handler::ws_handler))
-    
-    // Auth middleware (applied to all routes)
-    .layer(axum::middleware::from_fn(auth::middleware::auth_middleware))
-    .layer(Extension(state))
-    .layer(CorsLayer::permissive());
 ```
 
 ---
 
 ### Frontend Changes
 
-#### New Feature: `features/auth/`
+#### Updated Feature: `features/auth/`
 
 ```
 features/auth/
@@ -264,8 +326,8 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-    token: string;
-    expires_at: number;
+    success: boolean;
+    message: string;
 }
 
 export interface UserInfo {
@@ -274,8 +336,8 @@ export interface UserInfo {
 
 export interface AuthState {
     isAuthenticated: boolean;
-    token: string | null;
     user: UserInfo | null;
+    loading: boolean;
 }
 ```
 
@@ -289,6 +351,7 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',  // Important: include cookies
         body: JSON.stringify(credentials),
     });
     
@@ -299,9 +362,16 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     return res.json();
 }
 
-export async function getUserInfo(token: string): Promise<UserInfo> {
+export async function logout(): Promise<void> {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+    });
+}
+
+export async function getUserInfo(): Promise<UserInfo> {
     const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',  // Send cookie
     });
     
     if (!res.ok) {
@@ -310,63 +380,56 @@ export async function getUserInfo(token: string): Promise<UserInfo> {
     
     return res.json();
 }
+
+// Check if user is authenticated (try to fetch user info)
+export async function checkAuth(): Promise<UserInfo | null> {
+    try {
+        return await getUserInfo();
+    } catch {
+        return null;
+    }
+}
 ```
 
 #### Store (`features/auth/store.ts`)
 
 ```typescript
 import { writable } from 'svelte/store';
-import { browser } from '$app/environment';
-import type { AuthState } from './types';
-
-const TOKEN_KEY = 'hermes_dashboard_token';
+import type { AuthState, UserInfo } from './types';
+import { checkAuth, logout as apiLogout } from './api';
 
 function createAuthStore() {
     const { subscribe, set, update } = writable<AuthState>({
         isAuthenticated: false,
-        token: null,
         user: null,
+        loading: true,  // Start with loading=true
     });
-    
-    // Load token from localStorage on init
-    if (browser) {
-        const savedToken = localStorage.getItem(TOKEN_KEY);
-        if (savedToken) {
-            set({
-                isAuthenticated: true,
-                token: savedToken,
-                user: null, // Will be fetched
-            });
-        }
-    }
     
     return {
         subscribe,
-        setToken: (token: string) => {
-            if (browser) {
-                localStorage.setItem(TOKEN_KEY, token);
+        
+        // Check authentication status (call on app init)
+        async check() {
+            set({ isAuthenticated: false, user: null, loading: true });
+            
+            const user = await checkAuth();
+            
+            if (user) {
+                set({ isAuthenticated: true, user, loading: false });
+            } else {
+                set({ isAuthenticated: false, user: null, loading: false });
             }
-            set({
-                isAuthenticated: true,
-                token,
-                user: null,
-            });
         },
-        logout: () => {
-            if (browser) {
-                localStorage.removeItem(TOKEN_KEY);
-            }
-            set({
-                isAuthenticated: false,
-                token: null,
-                user: null,
-            });
+        
+        // Set authenticated after login
+        setUser(user: UserInfo) {
+            set({ isAuthenticated: true, user, loading: false });
         },
-        getToken: (): string | null => {
-            if (browser) {
-                return localStorage.getItem(TOKEN_KEY);
-            }
-            return null;
+        
+        // Logout
+        async logout() {
+            await apiLogout();
+            set({ isAuthenticated: false, user: null, loading: false });
         },
     };
 }
@@ -380,6 +443,7 @@ export const auth = createAuthStore();
 <script lang="ts">
     import { auth } from '../store';
     import { login } from '../api';
+    import { goto } from '$app/navigation';
     
     let username = $state('');
     let password = $state('');
@@ -391,8 +455,14 @@ export const auth = createAuthStore();
         error = '';
         
         try {
-            const response = await login({ username, password });
-            auth.setToken(response.token);
+            await login({ username, password });
+            
+            // Fetch user info and update store
+            const user = await getUserInfo();
+            auth.setUser(user);
+            
+            // Redirect to dashboard
+            goto('/');
         } catch (e) {
             error = 'Invalid username or password';
         } finally {
@@ -462,7 +532,13 @@ export const auth = createAuthStore();
     });
 </script>
 
-<LoginForm />
+{#if $auth.loading}
+    <div class="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+    </div>
+{:else if !$auth.isAuthenticated}
+    <LoginForm />
+{/if}
 ```
 
 #### Protected Layout (`routes/+layout.svelte`)
@@ -472,20 +548,31 @@ export const auth = createAuthStore();
     import { auth } from '$lib/features/auth/store';
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
+    import { onMount } from 'svelte';
     
     // Public routes that don't require auth
     const publicRoutes = ['/login'];
     
+    // Check auth on mount
+    onMount(async () => {
+        await auth.check();
+    });
+    
+    // Redirect if not authenticated
     $effect(() => {
         const isPublicRoute = publicRoutes.includes($page.url.pathname);
         
-        if (!$auth.isAuthenticated && !isPublicRoute) {
+        if (!$auth.loading && !$auth.isAuthenticated && !isPublicRoute) {
             goto('/login');
         }
     });
 </script>
 
-{#if $auth.isAuthenticated || publicRoutes.includes($page.url.pathname)}
+{#if $auth.loading}
+    <div class="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+    </div>
+{:else if $auth.isAuthenticated || publicRoutes.includes($page.url.pathname)}
     <slot />
 {/if}
 ```
@@ -493,33 +580,23 @@ export const auth = createAuthStore();
 #### API Wrapper Update (`shared/utils/api.ts`)
 
 ```typescript
-import { auth } from '$lib/features/auth/store';
-import { get } from 'svelte/store';
-
 export const API_BASE_URL = 'http://47.84.137.49:3001';
 
 export async function apiFetch<T>(
     path: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const token = auth.getToken();
-    
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...((options.headers as Record<string, string>) || {}),
-    };
-    
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-    
     const res = await fetch(`${API_BASE_URL}${path}`, {
         ...options,
-        headers,
+        credentials: 'include',  // Always include cookies
+        headers: {
+            'Content-Type': 'application/json',
+            ...((options.headers as Record<string, string>) || {}),
+        },
     });
     
     if (res.status === 401) {
-        auth.logout();
+        // Redirect to login
         window.location.href = '/login';
         throw new Error('Unauthorized');
     }
@@ -534,40 +611,100 @@ export async function apiFetch<T>(
 
 ---
 
+### Cookie Configuration
+
+| Attribute | Value | Purpose |
+|-----------|-------|---------|
+| `name` | `hermes_token` | Cookie name |
+| `value` | JWT token | Authentication data |
+| `path` | `/` | Available for all paths |
+| `httpOnly` | `true` | **Not accessible via JavaScript** (XSS-safe) |
+| `secure` | `true` (prod) / `false` (dev) | HTTPS only |
+| `sameSite` | `Lax` | CSRF protection |
+| `maxAge` | `86400` (24 hours) | Auto-expire |
+
+---
+
+### Security Comparison
+
+| Attack Vector | localStorage | HttpOnly Cookie |
+|---------------|--------------|-----------------|
+| **XSS** | ❌ Token stolen | ✅ Safe (can't read) |
+| **CSRF** | ✅ Safe (no auto-send) | ⚠️ Need SameSite |
+| **Network (HTTP)** | ❌ Exposed | ❌ Exposed |
+| **Network (HTTPS)** | ✅ Encrypted | ✅ Encrypted |
+
+**Mitigations:**
+- XSS → HttpOnly cookie (can't access via JS)
+- CSRF → SameSite=Lax (blocks cross-site POST)
+- Network → HTTPS (encrypt in transit)
+
+---
+
 ### Environment Variables
 
 ```bash
-# Backend (.env atau systemd service)
+# Backend
 DASHBOARD_USERNAME=admin
-DASHBOARD_PASSWORD=your-secure-password-here
+DASHBOARD_PASSWORD=your-secure-password
 JWT_SECRET=your-random-secret-key-at-least-32-chars
+COOKIE_SECURE=false  # Set true for HTTPS production
 ```
 
-### Security Features
+---
 
-| Feature | Implementation |
-|---------|---------------|
-| Login | POST /api/auth/login → returns JWT |
-| Token | JWT with 1-hour expiry |
-| Storage | localStorage (frontend) |
-| Transport | Bearer token in Authorization header |
-| Middleware | Verify JWT on all protected routes |
-| Auto-redirect | → /login if unauthorized |
-| Logout | Clear localStorage + redirect |
+### CORS Configuration (Important for Cookies)
 
-### Password Security Notes
+When using cookies, CORS must be configured correctly:
 
-**V1 (Initial):**
-- Password stored in env var (plain text)
-- Simple comparison for authentication
-- Good enough for personal use
+```rust
+use tower_http::cors::{CorsLayer, AllowOrigin};
 
-**V2 (Future):**
-- Hash password with argon2
-- Store hash in config file
-- Support multiple users
+let cors = CorsLayer::new()
+    .allow_origin(AllowOrigin::exact("http://47.84.137.49".parse().unwrap()))
+    .allow_credentials(true)
+    .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+    .allow_headers([HeaderName::from_static("content-type")]);
+```
+
+**Frontend `fetch` must include:**
+```typescript
+fetch(url, {
+    credentials: 'include',  // CRITICAL for cookies
+    // ...
+});
+```
+
+---
+
+### Testing
+
+**1. Test Login:**
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-password"}' \
+  -c cookies.txt -v
+
+# Should see Set-Cookie header in response
+```
+
+**2. Test Protected Route:**
+```bash
+curl http://localhost:3001/api/sessions \
+  -b cookies.txt
+
+# Should return data if cookie is valid
+```
+
+**3. Test Unauthorized:**
+```bash
+curl http://localhost:3001/api/sessions
+
+# Should return 401
+```
 
 ---
 
 **Last updated:** 2026-05-29
-**Security:** JWT Authentication
+**Security:** JWT + HttpOnly Cookie
