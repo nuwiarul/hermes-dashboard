@@ -38,7 +38,7 @@ Dashboard dilindungi JWT yang disimpan di **HttpOnly Cookie**. Token tidak bisa 
 │         └─ Valid → Generate JWT                                 │
 │                   │                                             │
 │                   ▼                                             │
-│  5. Set-Cookie: hermes_token=***; HttpOnly; Secure; SameSite=Lax│
+│  5. Set-Cookie: hermes_token=***; HttpOnly; Secure; SameSite=None│
 │                   │                                             │
 │                   ▼                                             │
 │  6. Response: { success: true }                                 │
@@ -129,10 +129,11 @@ pub async fn login(
     
     // Set HttpOnly cookie
     let cookie = tower_cookies::Cookie::build((COOKIE_NAME, token))
+    .domain(".vinrul.my.id")  // Allow cookie for all subdomains
         .path("/")
         .http_only(true)      // Not accessible via JavaScript
         .secure(true)         // HTTPS only (set false for local dev)
-        .same_site(tower_cookies::SameSite::Lax)
+        .same_site(tower_cookies::SameSite::None)
         .max_age(time::Duration::hours(24))
         .build();
     
@@ -147,6 +148,7 @@ pub async fn login(
 pub async fn logout(cookies: Cookies) -> Json<LoginResponse> {
     // Remove cookie
     let cookie = tower_cookies::Cookie::build((COOKIE_NAME, ""))
+    .domain(".vinrul.my.id")  // Allow cookie for all subdomains
         .path("/")
         .http_only(true)
         .secure(true)
@@ -636,7 +638,7 @@ export async function apiFetch<T>(
 
 **Mitigations:**
 - XSS → HttpOnly cookie (can't access via JS)
-- CSRF → SameSite=Lax (blocks cross-site POST)
+- CSRF → SameSite=None (blocks cross-site POST)
 - Network → HTTPS (encrypt in transit)
 
 ---
@@ -708,3 +710,43 @@ curl http://localhost:3001/api/sessions
 
 **Last updated:** 2026-05-29
 **Security:** JWT + HttpOnly Cookie
+
+---
+
+## 🌐 Cross-Origin Configuration
+
+Karena Frontend (`hermes.vinrul.my.id`) dan Backend (`api-hermes.vinrul.my.id`) adalah **different origins**, perlu konfigurasi khusus.
+
+### CORS (Backend)
+
+```rust
+use tower_http::cors::{CorsLayer, AllowOrigin};
+
+let cors = CorsLayer::new()
+    .allow_origin(AllowOrigin::exact("https://hermes.vinrul.my.id".parse().unwrap()))
+    .allow_credentials(true)
+    .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+    .allow_headers(["content-type".parse().unwrap()]);
+```
+
+### Cookie (Cross-Origin)
+
+```rust
+let cookie = Cookie::build(("hermes_token", token))
+    .domain(".vinrul.my.id")  // Works for all subdomains
+    .path("/")
+    .http_only(true)
+    .secure(true)
+    .same_site(tower_cookies::SameSite::None)  // Required for cross-origin
+    .max_age(time::Duration::hours(24))
+    .build();
+```
+
+### Frontend (credentials: include)
+
+```typescript
+const response = await fetch('https://api-hermes.vinrul.my.id/api/...', {
+    credentials: 'include',  // CRITICAL for cross-origin cookies
+});
+```
+
