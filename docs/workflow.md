@@ -495,3 +495,44 @@ main ← Production (always deployable)
 
 **Last updated:** 2026-05-29
 **Workflow:** Manual Deploy
+
+---
+
+## 🌐 Cross-Origin Setup
+
+Karena Frontend dan Backend adalah **different origins**, pastikan:
+
+### Backend (Rust)
+
+```rust
+// CORS configuration
+let cors = CorsLayer::new()
+    .allow_origin("https://hermes.vinrul.my.id".parse().unwrap())
+    .allow_credentials(true);
+
+// Cookie configuration
+let cookie = Cookie::build(("hermes_token", token))
+    .domain(".vinrul.my.id")
+    .secure(true)
+    .same_site(SameSite::None);
+```
+
+### Frontend (SvelteKit)
+
+```typescript
+// API calls must include credentials
+const response = await fetch('https://api-hermes.vinrul.my.id/api/...', {
+    credentials: 'include',
+});
+```
+
+### Nginx (Alibaba)
+
+```nginx
+# Tidak perlu proxy — Frontend langsung panggil Backend
+# Hanya serve static files
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
