@@ -549,3 +549,87 @@ Access-Control-Allow-Credentials: true
 **Last updated:** 2026-05-29
 **Architecture:** Direct Connection (No Proxy)
 **Status:** Production-ready with SSL
+
+---
+
+## 📄 Environment Variables
+
+### Backend (.env)
+
+```bash
+# Copy from .env.example
+cp backend/.env.example backend/.env
+
+# Edit with your values
+nano backend/.env
+```
+
+**Required Variables:**
+```bash
+# Auth (REQUIRED)
+DASHBOARD_USERNAME=admin
+DASHBOARD_PASSWORD=your-s...n
+JWT_ACCESS_SECRET=<generate with: openssl rand -hex 32>
+JWT_REFRESH_SECRET=<generate with: openssl rand -hex 32>
+
+# Cookie (REQUIRED)
+COOKIE_DOMAIN=.vinrul.my.id
+COOKIE_SECURE=true
+
+# CORS (REQUIRED)
+CORS_ORIGIN=https://hermes.vinrul.my.id
+
+# Frontend (REQUIRED)
+FRONTEND_URL=https://hermes.vinrul.my.id
+FRONTEND_DOMAIN=hermes.vinrul.my.id
+```
+
+**Generate JWT Secrets:**
+```bash
+# Generate random secrets
+openssl rand -hex 32
+# Example output: a1b2c3d4e5f6...
+
+# Use output as JWT_ACCESS_SECRET and JWT_REFRESH_SECRET
+```
+
+### Frontend (.env)
+
+```bash
+# Copy from .env.example
+cp frontend/.env.example frontend/.env
+
+# Edit with your values
+nano frontend/.env
+```
+
+**Required Variables:**
+```bash
+# API (REQUIRED)
+PUBLIC_API_BASE_URL=https://api-hermes.vinrul.my.id
+```
+
+**Note:** Frontend variables must be prefixed with `PUBLIC_` to be accessible in browser.
+
+### Systemd Service
+
+Update service file to load environment:
+
+```ini
+[Unit]
+Description=Hermes Dashboard Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/hermes-dashboard/backend
+EnvironmentFile=/home/ubuntu/hermes-dashboard/backend/.env
+ExecStart=/home/ubuntu/hermes-dashboard/backend/target/release/hermes-dashboard-backend
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
