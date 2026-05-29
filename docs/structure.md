@@ -525,3 +525,66 @@ CREATE TABLE messages (
 
 **Last updated:** 2026-05-29
 **Structure:** Feature-based modular architecture
+
+---
+
+## 🔒 Auth Feature (NEW)
+
+### Backend Addition
+
+```
+features/auth/
+├── mod.rs
+├── dto.rs           # LoginRequest, LoginResponse, Claims, UserInfo
+├── handler.rs       # login(), me()
+├── middleware.rs     # auth_middleware()
+└── repository.rs    # verify_credentials()
+```
+
+**New Dependencies:**
+```toml
+jsonwebtoken = "9"
+uuid = { version = "1", features = ["v4"] }
+```
+
+**New Environment Variables:**
+```bash
+DASHBOARD_USERNAME=admin
+DASHBOARD_PASSWORD=your-secure-password
+JWT_SECRET=change-me-in-production
+```
+
+**Protected Routes:**
+```
+POST /api/auth/login    → Public
+GET  /api/health        → Public
+GET  /api/sessions      → Protected (JWT required)
+GET  /api/stats         → Protected
+GET  /api/config        → Protected
+GET  /api/cron          → Protected
+WS   /ws                → Protected
+```
+
+### Frontend Addition
+
+```
+features/auth/
+├── components/
+│   └── LoginForm.svelte     # Login form component
+├── types.ts                 # LoginRequest, LoginResponse, AuthState
+├── api.ts                   # login(), getUserInfo()
+├── store.ts                 # auth store (token management)
+└── index.ts                 # Re-exports
+```
+
+**New Route:**
+```
+/login                       # Login page (public)
+```
+
+**Updated Files:**
+```
+routes/+layout.svelte        # Add auth check + redirect
+shared/utils/api.ts          # Add Authorization header
+```
+
