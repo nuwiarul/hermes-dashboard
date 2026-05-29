@@ -604,3 +604,48 @@ curl http://43.156.247.129:3001/api/health # Health check
 **Last updated:** 2026-05-29
 **Version:** 1.0.0
 **Maintainer:** Dodik (nuwiarul)
+
+---
+
+## 📱 Responsive Design Requirements
+
+### Mandatory Rules
+
+**SEMUA komponen HARUS responsive!**
+
+- ✅ Desktop (1920px+)
+- ✅ Laptop (1366px - 1919px)
+- ✅ Tablet/iPad (768px - 1365px)
+- ✅ Mobile/iPhone/Android (320px - 767px)
+
+### Breakpoints
+
+```css
+sm: 640px    /* Small phones landscape */
+md: 768px    /* Tablets portrait */
+lg: 1024px   /* Tablets landscape, small laptops */
+xl: 1280px   /* Laptops, desktops */
+2xl: 1536px  /* Large desktops */
+```
+
+### Rules
+
+1. **Jangan pakai fixed width** → Gunakan `w-full`, `max-w-*`, atau persen
+2. **Jangan pakai fixed font size** → Gunakan responsive: `text-sm sm:text-base`
+3. **Jangan pakai fixed padding** → Gunakan responsive: `p-4 sm:p-6`
+4. **Sidebar harus toggle di mobile** → Hamburger menu
+5. **Grid harus responsif** → `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
+6. **Touch target minimal 44x44px** → Untuk mobile usability
+
+### Testing
+
+**WAJIB test di semua ukuran sebelum commit:**
+- [ ] Desktop (1920x1080)
+- [ ] Tablet (768x1024)
+- [ ] Mobile (375x812)
+
+**Gunakan Chrome DevTools:**
+```
+F12 → Toggle Device Toolbar (Ctrl+Shift+M)
+```
+
