@@ -4,6 +4,35 @@
 
 **Goal:** Web dashboard untuk monitor & kontrol Hermes Agent — session viewer, cost tracker, tool analytics, cron manager, dan remote control.
 
+---
+
+## ✅ Task Checklist
+
+### Phase 1: Project Setup & Foundation
+- [ ] Task 1.1: Initialize Rust Backend
+- [ ] Task 1.2: Initialize SvelteKit Frontend (SPA Mode)
+- [ ] Task 1.3: Nginx Configuration (Alibaba Server)
+
+### Phase 2: Core API Endpoints
+- [ ] Task 2.1: Sessions List API
+- [ ] Task 2.2: Stats Overview API
+- [ ] Task 2.3: Config Reader API
+
+### Phase 3: Frontend Pages
+- [ ] Task 3.1: Dashboard Layout
+- [ ] Task 3.2: Dashboard Home Page
+- [ ] Task 3.3: Sessions Page
+
+### Phase 4: Advanced Features
+- [ ] Task 4.1: WebSocket Real-time Updates
+- [ ] Task 4.2: Cron Jobs Manager
+
+### Phase 5: Deployment
+- [ ] Task 5.1: Build & Deploy Scripts
+- [ ] Task 5.2: Systemd Service (Backend)
+
+---
+
 **Architecture:** 
 - **Backend:** Rust (Axum 0.8) baca Hermes state.db + config + logs, expose REST API + WebSocket
 - **Frontend:** SvelteKit 2 + Svelte 5 + Tailwind CSS 4 (SPA mode via adapter-static) → build jadi static files → serve via Nginx di Alibaba
