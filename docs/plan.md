@@ -1429,3 +1429,38 @@ git commit -m "feat: add systemd service for backend"
 **Plan created:** 2026-05-29
 **Author:** Hermes Agent (MiMo v2.5-pro)
 **Status:** Ready for implementation
+
+---
+
+## 🌐 Deployment Architecture (Updated)
+
+### Direct Connection (No Proxy)
+
+```
+Browser
+   │
+   ├─── HTTPS ──► hermes.vinrul.my.id (Alibaba)
+   │              └── Nginx serve static files only
+   │
+   └─── HTTPS ──► api-hermes.vinrul.my.id (Tencent)
+                  └── Nginx proxy ke Rust backend
+```
+
+**Key Changes:**
+- Alibaba serve frontend **saja** (tidak ada /api proxy)
+- Frontend langsung panggil `https://api-hermes.vinrul.my.id`
+- CORS dikonfigurasi di Backend untuk allow Frontend origin
+- Cookie di-set untuk domain `.vinrul.my.id` (bisa dipakai di semua subdomain)
+
+**Environment Variables:**
+```bash
+FRONTEND_URL=https://hermes.vinrul.my.id
+BACKEND_URL=https://api-hermes.vinrul.my.id
+COOKIE_SECURE=true
+```
+
+**Frontend API Base URL:**
+```typescript
+export const API_BASE_URL = 'https://api-hermes.vinrul.my.id';
+```
+
