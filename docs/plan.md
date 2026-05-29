@@ -390,7 +390,7 @@ server {
 
     # API proxy ke backend di Tencent
     location /api/ {
-        proxy_pass http://43.156.247.129:3001;
+        proxy_pass https://api-hermes.vinrul.my.id;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -399,7 +399,7 @@ server {
 
     # WebSocket proxy
     location /ws {
-        proxy_pass http://43.156.247.129:3001;
+        proxy_pass https://api-hermes.vinrul.my.id;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -1415,7 +1415,7 @@ git commit -m "feat: add systemd service for backend"
 - IP: 47.84.137.49
 
 **Akses Dashboard:**
-- http://47.84.137.49 (langsung via IP)
+- https://hermes.vinrul.my.id (langsung via IP)
 - Atau http://dashboard.example.com (kalau pakai domain)
 
 ### Next Steps
