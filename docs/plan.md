@@ -14,7 +14,7 @@
 - [x] Task 1.3: Nginx Configuration (Alibaba Server)
 
 ### Phase 2: Core API Endpoints
-- [ ] Task 2.1: Sessions List API
+- [x] Task 2.1: Sessions List API
 - [ ] Task 2.2: Stats Overview API
 - [ ] Task 2.3: Config Reader API
 

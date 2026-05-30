@@ -5,7 +5,9 @@ use tower_http::cors::CorsLayer;
 
 mod config;
 mod db;
+mod features;
 mod routes;
+pub mod shared;
 
 pub struct AppState {
     pub db: sqlx::sqlite::SqlitePool,
@@ -26,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/api/health", get(routes::health::handler))
+        .route("/api/sessions", get(features::sessions::handler::list))
         .layer(Extension(state))
         .layer(CorsLayer::permissive());
 
