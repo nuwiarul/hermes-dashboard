@@ -26,7 +26,6 @@ pub async fn switch_model(
 ) -> Result<Json<SwitchModelResponse>, crate::shared::error::AppError> {
     let config_path = state.config.config_path();
 
-    // Validate model name
     if payload.model.is_empty() {
         return Ok(Json(SwitchModelResponse {
             success: false,
@@ -35,7 +34,6 @@ pub async fn switch_model(
         }));
     }
 
-    // Check if model is in available list
     let available = repository::get_available_models();
     let model_info = available.iter().find(|m| m.name == payload.model);
 
@@ -50,7 +48,6 @@ pub async fn switch_model(
         }
     };
 
-    // Update config.yaml
     repository::update_model_in_config(&config_path, &payload.model, &provider).map_err(|e| {
         crate::shared::error::AppError::Internal(format!("Failed to update config: {}", e))
     })?;
@@ -68,7 +65,7 @@ pub async fn switch_model(
     }))
 }
 
-// === Toolset handlers ===
+// === Toolset handlers (Task 10.2) ===
 
 /// GET /api/tools/toolsets — List all toolsets with their status
 pub async fn get_toolsets(
@@ -104,23 +101,18 @@ pub async fn toggle_toolset(
 ) -> Result<Json<ToggleToolsetResponse>, crate::shared::error::AppError> {
     let config_path = state.config.config_path();
 
-    // Read current disabled list
     let mut disabled = repository::read_disabled_toolsets(&config_path).map_err(|e| {
         crate::shared::error::AppError::Internal(format!("Failed to read config: {}", e))
     })?;
 
-    // Toggle
     if payload.enabled {
-        // Enable: remove from disabled list
         disabled.retain(|n| n != &payload.name);
     } else {
-        // Disable: add to disabled list
         if !disabled.contains(&payload.name) {
             disabled.push(payload.name.clone());
         }
     }
 
-    // Update config.yaml
     repository::update_disabled_toolsets(&config_path, &disabled).map_err(|e| {
         crate::shared::error::AppError::Internal(format!("Failed to update config: {}", e))
     })?;
@@ -133,5 +125,97 @@ pub async fn toggle_toolset(
         message: format!("Toolset {} {}", payload.name, action),
         toolset: payload.name,
         enabled: payload.enabled,
+    }))
+}
+
+// === Send Message handlers (Task 10.3) ===
+
+/// GET /api/tools/targets — List available messaging targets
+pub async fn get_targets() -> Result<Json<TargetsResponse>, crate::shared::error::AppError> {
+    let targets = repository::list_send_targets().map_err(|e| {
+        crate::shared::error::AppError::Internal(format!("Failed to list targets: {}", e))
+    })?;
+
+    Ok(Json(TargetsResponse { targets }))
+}
+
+/// POST /api/tools/send-message — Send a message to the Hermes agent
+pub async fn send_message(
+    Json(payload): Json<SendMessageRequest>,
+) -> Result<Json<SendMessageResponse>, crate::shared::error::AppError> {
+    if payload.message.trim().is_empty() {
+        return Ok(Json(SendMessageResponse {
+            success: false,
+            message: "Message cannot be empty".to_string(),
+            platform: None,
+            chat_id: None,
+            message_id: None,
+        }));
+    }
+
+    let result = repository::send_message(&payload.message, payload.target.as_deref()).map_err(
+        |e| crate::shared::error::AppError::Internal(format!("Send failed: {}", e)),
+    )?;
+
+    let success = result
+        .get("success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let platform = result
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let chat_id = result
+        .get("chat_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let message_id = result
+        .get("message_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let note = result
+        .get("note")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Message sent");
+
+    tracing::info!(
+        "Message sent: platform={:?}, chat_id={:?}",
+        platform,
+        chat_id
+    );
+
+    Ok(Json(SendMessageResponse {
+        success,
+        message: note.to_string(),
+        platform,
+        chat_id,
+        message_id,
+    }))
+}
+
+// === Gateway Control handlers (Task 10.4) ===
+
+/// GET /api/tools/gateway/status — Get gateway status
+pub async fn get_gateway_status() -> Result<Json<GatewayStatusResponse>, crate::shared::error::AppError>
+{
+    let status = repository::get_gateway_status().map_err(|e| {
+        crate::shared::error::AppError::Internal(format!("Failed to get gateway status: {}", e))
+    })?;
+
+    Ok(Json(status))
+}
+
+/// POST /api/tools/gateway/restart — Restart the gateway
+pub async fn restart_gateway() -> Result<Json<GatewayRestartResponse>, crate::shared::error::AppError>
+{
+    let output = repository::restart_gateway().map_err(|e| {
+        crate::shared::error::AppError::Internal(format!("Gateway restart failed: {}", e))
+    })?;
+
+    tracing::info!("Gateway restarted by admin");
+
+    Ok(Json(GatewayRestartResponse {
+        success: true,
+        message: format!("Gateway restarted successfully. {}", output),
     }))
 }
