@@ -43,6 +43,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/api/health", get(routes::health::handler))
         .route("/api/sessions", get(features::sessions::handler::list))
+        .route("/api/stats", get(features::stats::handler::overview))
         .layer(Extension(state))
         .layer(cors);
 
