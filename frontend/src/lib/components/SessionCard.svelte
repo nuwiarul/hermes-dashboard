@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { haptic, createSwipeDetector } from '$lib/shared/utils/touch';
+    
     let { session }: {
         session: {
             id: string;
@@ -10,7 +13,11 @@
             model: string | null;
         };
     } = $props();
-
+    
+    let swipeOffset = $state(0);
+    let isSwiping = $state(false);
+    let cardEl: HTMLDivElement;
+    
     function formatDate(timestamp: number | null): string {
         if (!timestamp) return 'Unknown';
         const date = new Date(timestamp * 1000);
@@ -44,44 +51,89 @@
     function getStatus(ended_at: number | null): string {
         return ended_at ? 'Ended' : 'Active';
     }
+    
+    function handleTap() {
+        haptic(5);
+    }
+    
+    onMount(() => {
+        if (!cardEl) return;
+        
+        const detector = createSwipeDetector(cardEl, {
+            onSwipe: (direction, distance) => {
+                if (direction === 'left') {
+                    haptic(10);
+                    // Could reveal actions menu
+                } else if (direction === 'right') {
+                    haptic(5);
+                }
+                swipeOffset = 0;
+            },
+            onSwipeStart: () => {
+                isSwiping = true;
+            },
+            onSwipeEnd: () => {
+                isSwiping = false;
+                swipeOffset = 0;
+            },
+            threshold: 60
+        });
+        
+        return detector.destroy;
+    });
 </script>
 
-<div class="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-blue-200">
-    <div class="flex justify-between items-start gap-4">
-        <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-2">
-                <span class="text-lg">{getSourceIcon(session.source)}</span>
-                <h3 class="font-semibold text-lg text-gray-900 truncate">
-                    {session.title || 'Untitled Session'}
-                </h3>
+<div class="relative overflow-hidden rounded-xl">
+    <!-- Swipe action background (revealed on swipe left) -->
+    <div class="absolute inset-0 flex items-center justify-end gap-2 px-4 bg-blue-500 rounded-xl">
+        <span class="text-white text-sm font-medium">📋 Copy ID</span>
+    </div>
+    
+    <!-- Card -->
+    <div 
+        bind:this={cardEl}
+        class="relative bg-white rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-blue-200 active:bg-gray-50 min-h-[100px]"
+        style="transform: translateX({swipeOffset}px); transition: {isSwiping ? 'none' : 'transform 0.2s ease'}"
+        onclick={handleTap}
+        role="button"
+        tabindex="0"
+    >
+        <div class="flex justify-between items-start gap-3 sm:gap-4">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-lg">{getSourceIcon(session.source)}</span>
+                    <h3 class="font-semibold text-base sm:text-lg text-gray-900 truncate">
+                        {session.title || 'Untitled Session'}
+                    </h3>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
+                    <span class="flex items-center gap-1">
+                        <span class="capitalize">{session.source || 'unknown'}</span>
+                    </span>
+                    <span class="text-gray-300">•</span>
+                    <span class="flex items-center gap-1">
+                        💬 {session.message_count || 0}
+                    </span>
+                    <span class="text-gray-300">•</span>
+                    <span class="flex items-center gap-1">
+                        🤖 {session.model || 'unknown'}
+                    </span>
+                </div>
             </div>
             
-            <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                <span class="flex items-center gap-1">
-                    <span class="capitalize">{session.source || 'unknown'}</span>
+            <div class="flex flex-col items-end gap-2 shrink-0">
+                <span class="text-[10px] sm:text-xs px-2 py-1 rounded-full font-medium {getStatusColor(session.ended_at)}">
+                    {getStatus(session.ended_at)}
                 </span>
-                <span class="text-gray-300">•</span>
-                <span class="flex items-center gap-1">
-                    💬 {session.message_count || 0} messages
-                </span>
-                <span class="text-gray-300">•</span>
-                <span class="flex items-center gap-1">
-                    🤖 {session.model || 'unknown'}
+                <span class="text-[10px] sm:text-xs text-gray-400">
+                    {formatDate(session.started_at)}
                 </span>
             </div>
         </div>
         
-        <div class="flex flex-col items-end gap-2">
-            <span class="text-xs px-2 py-1 rounded-full font-medium {getStatusColor(session.ended_at)}">
-                {getStatus(session.ended_at)}
-            </span>
-            <span class="text-xs text-gray-400">
-                {formatDate(session.started_at)}
-            </span>
+        <div class="mt-3 pt-3 border-t border-gray-100">
+            <p class="text-[10px] sm:text-xs text-gray-400 font-mono truncate">ID: {session.id}</p>
         </div>
-    </div>
-    
-    <div class="mt-3 pt-3 border-t border-gray-100">
-        <p class="text-xs text-gray-400 font-mono truncate">ID: {session.id}</p>
     </div>
 </div>

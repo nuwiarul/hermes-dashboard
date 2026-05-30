@@ -99,19 +99,19 @@
                 <span class="text-xs sm:text-sm text-gray-500 shrink-0">Filter:</span>
                 <button 
                     onclick={() => filter = 'all'}
-                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 {filter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                    class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}"
                 >
                     All ({jobs.length})
                 </button>
                 <button 
                     onclick={() => filter = 'active'}
-                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 {filter === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                    class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}"
                 >
                     Active ({activeCount})
                 </button>
                 <button 
                     onclick={() => filter = 'paused'}
-                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 {filter === 'paused' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                    class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'paused' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}"
                 >
                     Paused ({pausedCount})
                 </button>

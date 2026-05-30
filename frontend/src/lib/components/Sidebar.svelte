@@ -1,5 +1,6 @@
 <script lang="ts">
     import { page } from '$app/stores';
+    import { haptic } from '$lib/shared/utils/touch';
     
     const navItems = [
         { href: '/', label: 'Dashboard', icon: '📊' },
@@ -16,12 +17,17 @@
         if (href === '/') return $page.url.pathname === '/';
         return $page.url.pathname.startsWith(href);
     }
+    
+    function handleNavClick() {
+        haptic(5);
+        sidebarOpen = false;
+    }
 </script>
 
 <!-- Mobile toggle button -->
 <button 
-    onclick={() => sidebarOpen = !sidebarOpen}
-    class="lg:hidden fixed top-3 left-3 z-50 p-2.5 bg-gray-900 text-white rounded-lg shadow-lg active:scale-95 transition-transform"
+    onclick={() => { sidebarOpen = !sidebarOpen; haptic(5); }}
+    class="lg:hidden fixed top-3 left-3 z-50 p-2.5 bg-gray-900 text-white rounded-lg shadow-lg active:scale-95 transition-transform min-h-[44px] min-w-[44px] flex items-center justify-center"
     aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
 >
     {sidebarOpen ? '✕' : '☰'}
@@ -61,7 +67,7 @@
         {#each navItems as item}
             <a 
                 href={item.href}
-                onclick={() => sidebarOpen = false}
+                onclick={handleNavClick}
                 class="group relative flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-all duration-150 min-h-[44px]
                        {isActive(item.href) 
                          ? 'bg-blue-600/20 text-blue-400' 

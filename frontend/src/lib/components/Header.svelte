@@ -1,5 +1,6 @@
 <script lang="ts">
     import { auth } from '$lib/stores/auth';
+    import { haptic } from '$lib/shared/utils/touch';
 
     let { status = 'online', model = 'Unknown' }: { 
         status?: 'online' | 'offline'; 
@@ -7,6 +8,7 @@
     } = $props();
 
     async function handleLogout() {
+        haptic(15);
         await auth.logout();
     }
 </script>
@@ -29,7 +31,7 @@
         
         <button
             onclick={handleLogout}
-            class="text-xs sm:text-sm text-gray-500 hover:text-red-600 transition cursor-pointer px-2 sm:px-3 py-1 rounded hover:bg-red-50"
+            class="text-xs sm:text-sm text-gray-500 hover:text-red-600 transition cursor-pointer px-3 py-2 rounded-lg hover:bg-red-50 active:bg-red-100 min-h-[44px] flex items-center"
         >
             Logout
         </button>
