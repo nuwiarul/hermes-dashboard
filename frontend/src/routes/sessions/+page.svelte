@@ -30,7 +30,7 @@
     onMount(async () => {
         try {
             const baseUrl = import.meta.env.VITE_API_BASE_URL;
-            const res = await fetch(`${baseUrl}/api/sessions`);
+            const res = await fetch(`${baseUrl}/api/sessions`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch sessions');
             const data = await res.json();
             sessions = data.sessions;

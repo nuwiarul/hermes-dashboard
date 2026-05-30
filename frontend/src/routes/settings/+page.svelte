@@ -8,7 +8,7 @@
     onMount(async () => {
         try {
             const baseUrl = import.meta.env.VITE_API_BASE_URL;
-            const res = await fetch(`${baseUrl}/api/config`);
+            const res = await fetch(`${baseUrl}/api/config`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch config');
             config = await res.json();
         } catch (e) {

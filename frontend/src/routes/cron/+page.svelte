@@ -16,7 +16,7 @@
     onMount(async () => {
         try {
             const baseUrl = import.meta.env.VITE_API_BASE_URL;
-            const res = await fetch(`${baseUrl}/api/cron`);
+            const res = await fetch(`${baseUrl}/api/cron`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to fetch cron jobs');
             const data = await res.json();
             jobs = data.jobs || [];

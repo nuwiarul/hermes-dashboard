@@ -94,7 +94,7 @@ export function connectWebSocket() {
 async function fetchStats() {
     try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL;
-        const res = await fetch(`${baseUrl}/api/stats`);
+        const res = await fetch(`${baseUrl}/api/stats`, { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
             stats.set(data);
