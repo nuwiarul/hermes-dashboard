@@ -9,7 +9,7 @@ const config = {
             pages: 'build',
             assets: 'build',
             fallback: 'index.html', // SPA fallback
-            precompress: false,
+            precompress: true,
             strict: true
         })
     }
