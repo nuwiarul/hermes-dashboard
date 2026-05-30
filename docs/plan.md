@@ -20,7 +20,7 @@
 
 ### Phase 3: Frontend Pages
 - [ ] Task 3.1: Dashboard Layout
-- [ ] Task 3.2: Dashboard Home Page
+- [x] Task 3.2: Dashboard Home Page
 - [ ] Task 3.3: Sessions Page
 
 ### Phase 4: Advanced Features
