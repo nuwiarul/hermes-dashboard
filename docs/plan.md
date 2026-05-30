@@ -15,16 +15,16 @@
 
 ### Phase 2: Core API Endpoints
 - [x] Task 2.1: Sessions List API
-- [ ] Task 2.2: Stats Overview API
-- [ ] Task 2.3: Config Reader API
+- [x] Task 2.2: Stats Overview API
+- [x] Task 2.3: Config Reader API
 
 ### Phase 3: Frontend Pages
-- [ ] Task 3.1: Dashboard Layout
+- [x] Task 3.1: Dashboard Layout
 - [x] Task 3.2: Dashboard Home Page
-- [ ] Task 3.3: Sessions Page
+- [x] Task 3.3: Sessions Page
 
 ### Phase 4: Advanced Features
-- [ ] Task 4.1: WebSocket Real-time Updates
+- [x] Task 4.1: WebSocket Real-time Updates
 - [ ] Task 4.2: Cron Jobs Manager
 
 ### Phase 5: Deployment
