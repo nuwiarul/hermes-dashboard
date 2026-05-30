@@ -4,6 +4,8 @@ pub struct AppConfig {
     pub hermes_home: PathBuf,
     pub port: u16,
     pub cors_origins: Vec<String>,
+    pub rate_limit_login_max: u32,
+    pub rate_limit_api_max: u32,
 }
 
 impl AppConfig {
@@ -27,10 +29,22 @@ impl AppConfig {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let rate_limit_login_max = std::env::var("RATE_LIMIT_LOGIN_MAX")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5);
+
+        let rate_limit_api_max = std::env::var("RATE_LIMIT_API_MAX")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse()
+            .unwrap_or(60);
+
         Self {
             hermes_home,
             port,
             cors_origins,
+            rate_limit_login_max,
+            rate_limit_api_max,
         }
     }
 
