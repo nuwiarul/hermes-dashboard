@@ -1,14 +1,21 @@
+# Nginx Configuration for Hermes Dashboard API (Tencent Server)
+# Architecture: Backend API server
+# Domain: api-hermes.vinrul.my.id
+# Server: 43.156.247.129 (Tencent)
+
+# HTTP → HTTPS redirect
 server {
     listen 80;
     server_name api-hermes.vinrul.my.id;
     return 301 https://$server_name$request_uri;
 }
 
+# HTTPS — Proxy to Rust Backend
 server {
     listen 443 ssl http2;
     server_name api-hermes.vinrul.my.id;
 
-    # SSL Configuration
+    # SSL Configuration (Cloudflare Origin Certificate)
     ssl_certificate /etc/ssl/vinrul_my_id_cert.pem;
     ssl_certificate_key /etc/ssl/vinrul_my_id_key.pem;
     ssl_trusted_certificate /etc/ssl/cloudflare.crt;
