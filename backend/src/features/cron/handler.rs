@@ -1,8 +1,8 @@
-use axum::{Extension, Json};
-use std::sync::Arc;
-use crate::AppState;
 use super::dto::{CronJobDto, CronJobsResponse};
 use super::repository;
+use crate::AppState;
+use axum::{Extension, Json};
+use std::sync::Arc;
 
 pub async fn list_jobs(
     Extension(state): Extension<Arc<AppState>>,
@@ -10,8 +10,8 @@ pub async fn list_jobs(
     let jobs = repository::find_all(&state)
         .await
         .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    
+
     let total = jobs.len();
-    
+
     Ok(Json(CronJobsResponse { jobs, total }))
 }

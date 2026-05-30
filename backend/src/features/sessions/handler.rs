@@ -1,8 +1,8 @@
-use axum::{Extension, Json};
-use std::sync::Arc;
-use crate::AppState;
 use super::dto::SessionSummaryDto;
 use super::repository;
+use crate::AppState;
+use axum::{Extension, Json};
+use std::sync::Arc;
 
 pub async fn list(
     Extension(state): Extension<Arc<AppState>>,

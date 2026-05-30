@@ -1,19 +1,25 @@
-use axum::{Extension, extract::Request, http::StatusCode, Json, http::header::SET_COOKIE, response::{IntoResponse, Response}};
+use axum::{
+    extract::Request,
+    http::header::SET_COOKIE,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Extension, Json,
+};
 use std::sync::Arc;
 
-use crate::AppState;
 use super::dto::{LoginRequest, LoginResponse};
 use super::jwt;
+use crate::AppState;
 
 pub async fn login(
     Extension(state): Extension<Arc<AppState>>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, (StatusCode, Json<LoginResponse>)> {
     // Get credentials from env
-    let valid_username = std::env::var("DASHBOARD_USERNAME")
-        .unwrap_or_else(|_| "admin".to_string());
-    let valid_password = std::env::var("DASHBOARD_PASSWORD")
-        .unwrap_or_else(|_| "admin".to_string());
+    let valid_username =
+        std::env::var("DASHBOARD_USERNAME").unwrap_or_else(|_| "admin".to_string());
+    let valid_password =
+        std::env::var("DASHBOARD_PASSWORD").unwrap_or_else(|_| "admin".to_string());
 
     // Validate credentials
     if payload.username != valid_username || payload.password != valid_password {
@@ -41,13 +47,11 @@ pub async fn login(
     // Build HttpOnly, Secure cookies
     let access_cookie = format!(
         "access_token={}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age={}",
-        access_token,
-        state.jwt.access_duration_secs
+        access_token, state.jwt.access_duration_secs
     );
     let refresh_cookie = format!(
         "refresh_token={}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age={}",
-        refresh_token,
-        state.jwt.refresh_duration_secs
+        refresh_token, state.jwt.refresh_duration_secs
     );
 
     // Build response with Set-Cookie headers
@@ -56,8 +60,9 @@ pub async fn login(
         Json(serde_json::json!({
             "success": true,
             "message": "Login successful"
-        }))
-    ).into_response();
+        })),
+    )
+        .into_response();
 
     let headers = response.headers_mut();
     headers.insert(SET_COOKIE, access_cookie.parse().unwrap());
@@ -76,8 +81,9 @@ pub async fn logout() -> Response {
         Json(LoginResponse {
             success: true,
             message: "Logged out successfully".to_string(),
-        })
-    ).into_response();
+        }),
+    )
+        .into_response();
 
     let headers = response.headers_mut();
     headers.insert(SET_COOKIE, clear_access.parse().unwrap());
@@ -95,8 +101,8 @@ pub async fn me(
     let token = extract_access_token_from_cookie(&request)?;
 
     // Validate token
-    let claims = jwt::validate_access_token(&token, &state.jwt)
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let claims =
+        jwt::validate_access_token(&token, &state.jwt).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -105,12 +111,17 @@ pub async fn me(
 }
 
 /// Extract access_token from Cookie header in request
-fn extract_access_token_from_cookie(request: &Request<axum::body::Body>) -> Result<String, StatusCode> {
-    let cookie_header = request.headers()
+fn extract_access_token_from_cookie(
+    request: &Request<axum::body::Body>,
+) -> Result<String, StatusCode> {
+    let cookie_header = request
+        .headers()
         .get("cookie")
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    let cookie_str = cookie_header.to_str().map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let cookie_str = cookie_header
+        .to_str()
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     for cookie in cookie_str.split(';') {
         let cookie = cookie.trim();
