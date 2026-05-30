@@ -45,7 +45,7 @@
 - [x] Task 7.4: Dark/Light Theme
 
 ### Phase 8: Testing
-- [ ] Task 8.1: Backend Unit Tests
+- [x] Task 8.1: Backend Unit Tests
 - [ ] Task 8.2: API Integration Tests
 - [ ] Task 8.3: Frontend Component Tests
 - [ ] Task 8.4: E2E Tests
