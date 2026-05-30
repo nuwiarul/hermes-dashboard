@@ -1,5 +1,5 @@
-use sqlx::sqlite::SqlitePool;
 use super::dto::SessionDto;
+use sqlx::sqlite::SqlitePool;
 
 pub async fn find_all(db: &SqlitePool, limit: i64) -> Result<Vec<SessionDto>, sqlx::Error> {
     let sessions = sqlx::query_as::<_, SessionDto>(
@@ -13,7 +13,7 @@ pub async fn find_all(db: &SqlitePool, limit: i64) -> Result<Vec<SessionDto>, sq
             model
          FROM sessions 
          ORDER BY started_at DESC 
-         LIMIT ?"
+         LIMIT ?",
     )
     .bind(limit)
     .fetch_all(db)

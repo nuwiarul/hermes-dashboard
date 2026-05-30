@@ -1,4 +1,7 @@
-use axum::{routing::{get, post}, Extension, Router};
+use axum::{
+    routing::{get, post},
+    Extension, Router,
+};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -83,6 +86,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/stats", get(features::stats::handler::overview))
         .route("/api/config", get(features::config::handler::get_config))
         .route("/api/cron", get(features::cron::handler::list_jobs))
+        .route("/api/tools/models", get(features::tools::handler::get_models))
+        .route("/api/tools/switch-model", post(features::tools::handler::switch_model))
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(
@@ -101,7 +106,8 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(
         tokio::net::TcpListener::bind(addr).await?,
         app.into_make_service_with_connect_info::<SocketAddr>(),
-    ).await?;
+    )
+    .await?;
 
     Ok(())
 }

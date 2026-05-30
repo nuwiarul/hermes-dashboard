@@ -1,5 +1,5 @@
+use super::dto::{SourceCountDto, StatsOverviewDto};
 use sqlx::sqlite::SqlitePool;
-use super::dto::{StatsOverviewDto, SourceCountDto};
 
 pub async fn get_stats(db: &SqlitePool) -> Result<StatsOverviewDto, sqlx::Error> {
     // Total sessions
@@ -14,14 +14,14 @@ pub async fn get_stats(db: &SqlitePool) -> Result<StatsOverviewDto, sqlx::Error>
 
     // Sessions today (started_at is Unix timestamp)
     let sessions_today: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sessions WHERE date(started_at, 'unixepoch') = date('now')"
+        "SELECT COUNT(*) FROM sessions WHERE date(started_at, 'unixepoch') = date('now')",
     )
     .fetch_one(db)
     .await?;
 
     // Messages today (timestamp is Unix timestamp)
     let messages_today: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM messages WHERE date(timestamp, 'unixepoch') = date('now')"
+        "SELECT COUNT(*) FROM messages WHERE date(timestamp, 'unixepoch') = date('now')",
     )
     .fetch_one(db)
     .await?;
@@ -31,7 +31,7 @@ pub async fn get_stats(db: &SqlitePool) -> Result<StatsOverviewDto, sqlx::Error>
         "SELECT COALESCE(source, 'unknown'), COUNT(*) 
          FROM sessions 
          GROUP BY source 
-         ORDER BY COUNT(*) DESC"
+         ORDER BY COUNT(*) DESC",
     )
     .fetch_all(db)
     .await?;
@@ -48,24 +48,23 @@ pub async fn get_stats(db: &SqlitePool) -> Result<StatsOverviewDto, sqlx::Error>
             COALESCE(SUM(output_tokens), 0),
             COALESCE(SUM(cache_read_tokens), 0),
             COALESCE(SUM(reasoning_tokens), 0)
-         FROM sessions"
+         FROM sessions",
     )
     .fetch_one(db)
     .await?;
 
     // Tool calls total
-    let tool_calls: (i64,) = sqlx::query_as(
-        "SELECT COALESCE(SUM(tool_call_count), 0) FROM sessions"
-    )
-    .fetch_one(db)
-    .await?;
+    let tool_calls: (i64,) =
+        sqlx::query_as("SELECT COALESCE(SUM(tool_call_count), 0) FROM sessions")
+            .fetch_one(db)
+            .await?;
 
     // Cost totals
     let costs: (f64, f64) = sqlx::query_as(
         "SELECT 
             COALESCE(SUM(estimated_cost_usd), 0.0),
             COALESCE(SUM(actual_cost_usd), 0.0)
-         FROM sessions"
+         FROM sessions",
     )
     .fetch_one(db)
     .await?;

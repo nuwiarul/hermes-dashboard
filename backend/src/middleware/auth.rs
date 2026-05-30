@@ -1,10 +1,5 @@
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
 use axum::http::header;
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 
 use crate::features::auth::jwt;
 
@@ -12,8 +7,7 @@ use crate::features::auth::jwt;
 /// or access_token cookie
 pub async fn require_auth(mut request: Request, next: Next) -> Result<Response, StatusCode> {
     // Try to extract token from Authorization header first
-    let token = extract_token_from_header(&request)
-        .or_else(|| extract_token_from_cookie(&request));
+    let token = extract_token_from_header(&request).or_else(|| extract_token_from_cookie(&request));
 
     let token = match token {
         Some(t) => t,
@@ -27,8 +21,8 @@ pub async fn require_auth(mut request: Request, next: Next) -> Result<Response, 
         .cloned()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let claims = jwt::validate_access_token(&token, &state.jwt)
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let claims =
+        jwt::validate_access_token(&token, &state.jwt).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     // Insert claims into request extensions for handlers to use
     request.extensions_mut().insert(claims);

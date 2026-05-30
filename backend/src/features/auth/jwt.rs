@@ -1,7 +1,7 @@
+use anyhow::{bail, Result};
+use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use chrono::{Utc, Duration};
-use anyhow::{Result, bail};
 
 /// Claims in JWT token
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -29,16 +29,15 @@ pub struct JwtConfig {
 
 impl JwtConfig {
     pub fn from_env() -> Self {
-        let secret = std::env::var("JWT_SECRET")
-            .unwrap_or_else(|_| {
-                // Generate a random secret if not set (for development only)
-                use std::time::{SystemTime, UNIX_EPOCH};
-                let seed = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos();
-                format!("dev-secret-{}", seed)
-            });
+        let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| {
+            // Generate a random secret if not set (for development only)
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let seed = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            format!("dev-secret-{}", seed)
+        });
 
         let access_minutes: i64 = std::env::var("JWT_ACCESS_DURATION")
             .unwrap_or_else(|_| "15".to_string())
@@ -110,7 +109,11 @@ pub fn validate_token(token: &str, config: &JwtConfig, expected_type: &str) -> R
     )?;
 
     if token_data.claims.token_type != expected_type {
-        bail!("Invalid token type: expected '{}', got '{}'", expected_type, token_data.claims.token_type);
+        bail!(
+            "Invalid token type: expected '{}', got '{}'",
+            expected_type,
+            token_data.claims.token_type
+        );
     }
 
     Ok(token_data.claims)

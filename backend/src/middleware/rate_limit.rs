@@ -73,7 +73,15 @@ pub async fn rate_limit_login(
 ) -> Result<Response, StatusCode> {
     let ip = addr.ip().to_string();
 
-    if !state.check_rate_limit(&ip, &state.login_limiter, state.login_max, state.login_window).await {
+    if !state
+        .check_rate_limit(
+            &ip,
+            &state.login_limiter,
+            state.login_max,
+            state.login_window,
+        )
+        .await
+    {
         tracing::warn!("Rate limit exceeded for IP {} on login endpoint", ip);
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
@@ -90,7 +98,10 @@ pub async fn rate_limit_api(
 ) -> Result<Response, StatusCode> {
     let ip = addr.ip().to_string();
 
-    if !state.check_rate_limit(&ip, &state.api_limiter, state.api_max, state.api_window).await {
+    if !state
+        .check_rate_limit(&ip, &state.api_limiter, state.api_max, state.api_window)
+        .await
+    {
         tracing::warn!("Rate limit exceeded for IP {} on API endpoint", ip);
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }

@@ -1,12 +1,12 @@
+use crate::AppState;
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
     Extension,
 };
 use futures::{SinkExt, StreamExt};
-use std::sync::Arc;
 use serde_json::json;
-use crate::AppState;
+use std::sync::Arc;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -17,15 +17,19 @@ pub async fn ws_handler(
 
 async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
     let (mut sender, mut receiver) = socket.split();
-    
+
     // Send initial status
     let status = get_status(&state).await;
-    let _ = sender.send(Message::Text(serde_json::to_string(&status).unwrap().into())).await;
-    
+    let _ = sender
+        .send(Message::Text(
+            serde_json::to_string(&status).unwrap().into(),
+        ))
+        .await;
+
     // Use tokio::select to handle both incoming messages and periodic updates
     let mut update_interval = tokio::time::interval(std::time::Duration::from_secs(5));
     let mut last_status = status.clone();
-    
+
     loop {
         tokio::select! {
             // Handle incoming messages
