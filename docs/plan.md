@@ -41,8 +41,8 @@
 ### Phase 7: Responsive Design
 - [x] Task 7.1: Mobile-First Layout
 - [x] Task 7.2: Responsive Navigation
-- [ ] Task 7.3: Touch-Friendly Components
-- [ ] Task 7.4: Dark/Light Theme
+- [x] Task 7.3: Touch-Friendly Components
+- [x] Task 7.4: Dark/Light Theme
 
 ### Phase 8: Testing
 - [ ] Task 8.1: Backend Unit Tests

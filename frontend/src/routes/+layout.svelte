@@ -5,6 +5,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { status, connectWebSocket, disconnectWebSocket } from '$lib/stores/status';
     import { auth } from '$lib/stores/auth';
+    import { theme } from '$lib/stores/theme';
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
 
@@ -12,19 +13,17 @@
 
     let isLoginPage = $derived($page.url.pathname === '/login');
 
-    // Check auth status on mount (validates cookie via /api/auth/me)
     onMount(() => {
+        theme.init();
         auth.checkAuth();
     });
 
-    // Redirect to login if not authenticated (after loading)
     $effect(() => {
         if (!$auth.isLoading && !$auth.isAuthenticated && !isLoginPage) {
             goto('/login');
         }
     });
 
-    // Connect WebSocket when authenticated
     $effect(() => {
         if ($auth.isAuthenticated && !isLoginPage) {
             connectWebSocket();
@@ -37,18 +36,14 @@
 </script>
 
 {#if isLoginPage}
-    <!-- Login page: no sidebar/header -->
     {@render children()}
 {:else if $auth.isLoading}
-    <!-- Checking auth status -->
-    <div class="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div class="text-gray-400">Loading...</div>
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div class="text-gray-400 dark:text-gray-500">Loading...</div>
     </div>
 {:else if $auth.isAuthenticated}
-    <!-- Authenticated: show full layout -->
-    <div class="flex min-h-screen bg-gray-100">
+    <div class="flex min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
         <Sidebar />
-        <!-- Tablet spacer: sidebar is fixed on md, need spacer for content -->
         <div class="hidden md:block lg:hidden w-16 shrink-0"></div>
         <div class="flex-1 flex flex-col min-w-0">
             <Header status={$status.online ? 'online' : 'offline'} model="mimo-v2.5" />
@@ -58,8 +53,7 @@
         </div>
     </div>
 {:else}
-    <!-- Not authenticated: redirecting -->
-    <div class="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div class="text-gray-400">Redirecting to login...</div>
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div class="text-gray-400 dark:text-gray-500">Redirecting to login...</div>
     </div>
 {/if}

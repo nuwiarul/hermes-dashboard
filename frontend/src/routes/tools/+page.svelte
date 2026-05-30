@@ -7,8 +7,8 @@
 
 <div class="max-w-4xl mx-auto">
     <div class="mb-6 sm:mb-8">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Tools</h1>
-        <p class="text-sm sm:text-base text-gray-600">Remote control for your AI agent</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2">Tools</h1>
+        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Remote control for your AI agent</p>
     </div>
     
     <div class="space-y-4 sm:space-y-6">
