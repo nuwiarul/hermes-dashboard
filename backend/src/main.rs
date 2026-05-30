@@ -73,6 +73,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/health", get(routes::health::handler))
         .route("/api/auth/login", post(features::auth::handler::login))
         .route("/api/auth/logout", post(features::auth::handler::logout))
+        .route("/api/auth/refresh", post(features::auth::handler::refresh))
         .route("/api/auth/me", get(features::auth::handler::me))
         .layer(axum::middleware::from_fn_with_state(
             rate_limit_state.clone(),

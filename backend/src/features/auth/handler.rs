@@ -9,12 +9,34 @@ use std::sync::Arc;
 
 use super::dto::{LoginRequest, LoginResponse};
 use super::jwt;
+use crate::shared::validation::{validate_password, validate_username};
 use crate::AppState;
 
 pub async fn login(
     Extension(state): Extension<Arc<AppState>>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Response, (StatusCode, Json<LoginResponse>)> {
+) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    // Validate input
+    let username = validate_username(&payload.username).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "message": e.message
+            })),
+        )
+    })?;
+
+    let password = validate_password(&payload.password).map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "message": e.message
+            })),
+        )
+    })?;
+
     // Get credentials from env
     let valid_username =
         std::env::var("DASHBOARD_USERNAME").unwrap_or_else(|_| "admin".to_string());
@@ -22,13 +44,13 @@ pub async fn login(
         std::env::var("DASHBOARD_PASSWORD").unwrap_or_else(|_| "admin".to_string());
 
     // Validate credentials
-    if payload.username != valid_username || payload.password != valid_password {
+    if username != valid_username || password != valid_password {
         return Err((
             StatusCode::UNAUTHORIZED,
-            Json(LoginResponse {
-                success: false,
-                message: "Invalid username or password".to_string(),
-            }),
+            Json(serde_json::json!({
+                "success": false,
+                "message": "Invalid username or password"
+            })),
         ));
     }
 
@@ -37,10 +59,10 @@ pub async fn login(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(LoginResponse {
-                    success: false,
-                    message: format!("Failed to generate token: {}", e),
-                }),
+                Json(serde_json::json!({
+                    "success": false,
+                    "message": format!("Failed to generate token: {}", e)
+                })),
             )
         })?;
 
@@ -97,22 +119,91 @@ pub async fn me(
     Extension(state): Extension<Arc<AppState>>,
     request: Request<axum::body::Body>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    // Extract access_token from Cookie header
-    let token = extract_access_token_from_cookie(&request)?;
+    // Try access_token first
+    if let Ok(token) = extract_token_from_cookie(&request, "access_token") {
+        if let Ok(claims) = jwt::validate_access_token(&token, &state.jwt) {
+            return Ok(Json(serde_json::json!({
+                "success": true,
+                "username": claims.sub
+            })));
+        }
+    }
 
-    // Validate token
-    let claims =
-        jwt::validate_access_token(&token, &state.jwt).map_err(|_| StatusCode::UNAUTHORIZED)?;
-
-    Ok(Json(serde_json::json!({
-        "success": true,
-        "username": claims.sub
-    })))
+    // Access token invalid/expired — try refresh
+    Err(StatusCode::UNAUTHORIZED)
 }
 
-/// Extract access_token from Cookie header in request
-fn extract_access_token_from_cookie(
+/// POST /api/auth/refresh — Use refresh_token to get new access_token + refresh_token
+pub async fn refresh(
+    Extension(state): Extension<Arc<AppState>>,
+    request: Request<axum::body::Body>,
+) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    // Extract refresh_token from cookie
+    let refresh_token = extract_token_from_cookie(&request, "refresh_token").map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "message": "No refresh token found"
+            })),
+        )
+    })?;
+
+    // Validate refresh token
+    let claims = jwt::validate_refresh_token(&refresh_token, &state.jwt).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "message": "Invalid or expired refresh token"
+            })),
+        )
+    })?;
+
+    // Generate new token pair
+    let (new_access, new_refresh) = jwt::generate_token_pair(&claims.sub, &state.jwt).map_err(
+        |e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "message": format!("Failed to generate token: {}", e)
+                })),
+            )
+        },
+    )?;
+
+    // Build new cookies
+    let access_cookie = format!(
+        "access_token={}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age={}",
+        new_access, state.jwt.access_duration_secs
+    );
+    let refresh_cookie = format!(
+        "refresh_token={}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age={}",
+        new_refresh, state.jwt.refresh_duration_secs
+    );
+
+    // Build response
+    let mut response = (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "message": "Token refreshed successfully"
+        })),
+    )
+        .into_response();
+
+    let headers = response.headers_mut();
+    headers.insert(SET_COOKIE, access_cookie.parse().unwrap());
+    headers.append(SET_COOKIE, refresh_cookie.parse().unwrap());
+
+    Ok(response)
+}
+
+/// Extract a specific token from Cookie header
+fn extract_token_from_cookie(
     request: &Request<axum::body::Body>,
+    name: &str,
 ) -> Result<String, StatusCode> {
     let cookie_header = request
         .headers()
@@ -125,7 +216,7 @@ fn extract_access_token_from_cookie(
 
     for cookie in cookie_str.split(';') {
         let cookie = cookie.trim();
-        if let Some(value) = cookie.strip_prefix("access_token=") {
+        if let Some(value) = cookie.strip_prefix(&format!("{}=", name)) {
             return Ok(value.to_string());
         }
     }
