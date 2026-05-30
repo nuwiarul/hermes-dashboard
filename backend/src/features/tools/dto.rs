@@ -71,3 +71,39 @@ pub struct ToggleToolsetResponse {
     pub toolset: String,
     pub enabled: bool,
 }
+
+// === Send Message DTOs (Task 10.3) ===
+
+/// A messaging target (platform + contact)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MessageTarget {
+    pub platform: String,
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub target_type: String,
+    pub thread_id: Option<String>,
+}
+
+/// Response for GET /api/tools/targets
+#[derive(Debug, Serialize)]
+pub struct TargetsResponse {
+    pub targets: Vec<MessageTarget>,
+}
+
+/// Request for POST /api/tools/send-message
+#[derive(Debug, Deserialize)]
+pub struct SendMessageRequest {
+    pub message: String,
+    pub target: Option<String>,
+}
+
+/// Response for POST /api/tools/send-message
+#[derive(Debug, Serialize)]
+pub struct SendMessageResponse {
+    pub success: bool,
+    pub message: String,
+    pub platform: Option<String>,
+    pub chat_id: Option<String>,
+    pub message_id: Option<String>,
+}

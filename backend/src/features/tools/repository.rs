@@ -1,5 +1,10 @@
-use super::dto::{AvailableModel, ModelInfo, ToolsetInfo};
+use super::dto::{AvailableModel, MessageTarget, ModelInfo, ToolsetInfo};
 use std::path::Path;
+
+/// Path to hermes binary — use absolute path since systemd has limited PATH
+const HERMES_BIN: &str = "/home/ubuntu/.local/bin/hermes";
+
+// ── Model functions ──
 
 /// Read current model config from config.yaml
 pub fn read_model_config(config_path: &Path) -> Result<ModelInfo, std::io::Error> {
@@ -20,7 +25,7 @@ pub fn read_model_config(config_path: &Path) -> Result<ModelInfo, std::io::Error
     })
 }
 
-/// Get list of available models (hardcoded for now, could be dynamic later)
+/// Get list of available models
 pub fn get_available_models() -> Vec<AvailableModel> {
     vec![
         AvailableModel {
@@ -64,16 +69,119 @@ pub fn update_model_in_config(
 ) -> Result<(), std::io::Error> {
     let raw_yaml = std::fs::read_to_string(config_path)?;
 
-    // Replace model.default value
     let new_yaml = replace_yaml_value(&raw_yaml, "default", new_model);
-
-    // Replace model.provider value
     let new_yaml = replace_yaml_value(&new_yaml, "provider", new_provider);
 
     std::fs::write(config_path, new_yaml)?;
 
     Ok(())
 }
+
+// ── Send Message functions (Task 10.3) ──
+
+/// List available messaging targets via `hermes send --list --json`
+pub fn list_send_targets() -> Result<Vec<MessageTarget>, String> {
+    let output = std::process::Command::new(HERMES_BIN)
+        .args(["send", "--list", "--json"])
+        .output()
+        .map_err(|e| format!("Failed to run hermes send: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("hermes send --list failed: {}", stderr));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse hermes output: {}", e))?;
+
+    let mut targets = Vec::new();
+
+    if let Some(platforms) = json.get("platforms").and_then(|v| v.as_object()) {
+        for (platform, contacts) in platforms {
+            if let Some(arr) = contacts.as_array() {
+                for contact in arr {
+                    let id = contact
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let name = contact
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let target_type = contact
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let thread_id = contact
+                        .get("thread_id")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+
+                    targets.push(MessageTarget {
+                        platform: platform.clone(),
+                        id: id.clone(),
+                        name,
+                        target_type,
+                        thread_id,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(targets)
+}
+
+/// Send a message via `hermes send`
+pub fn send_message(message: &str, target: Option<&str>) -> Result<serde_json::Value, String> {
+    let mut cmd = std::process::Command::new(HERMES_BIN);
+    cmd.arg("send");
+
+    if let Some(t) = target {
+        cmd.args(["--to", t]);
+    }
+
+    cmd.args(["--json"]);
+
+    // Write message to stdin
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn hermes send: {}", e))?;
+
+    if let Some(ref mut stdin) = child.stdin {
+        use std::io::Write;
+        stdin
+            .write_all(message.as_bytes())
+            .map_err(|e| format!("Failed to write to hermes stdin: {}", e))?;
+    }
+    // Drop stdin to close it
+    drop(child.stdin.take());
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Failed to wait for hermes send: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("hermes send failed: {}", stderr));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse hermes output: {}", e))?;
+
+    Ok(json)
+}
+
+// ── YAML helpers ──
 
 /// Replace a YAML key's value (simple line-based replacement)
 fn replace_yaml_value(yaml: &str, key: &str, new_value: &str) -> String {
@@ -83,7 +191,6 @@ fn replace_yaml_value(yaml: &str, key: &str, new_value: &str) -> String {
     for line in yaml.lines() {
         let trimmed = line.trim();
 
-        // Track if we're in the model section
         if trimmed == "model:" {
             in_model_section = true;
             result.push_str(line);
@@ -91,7 +198,6 @@ fn replace_yaml_value(yaml: &str, key: &str, new_value: &str) -> String {
             continue;
         }
 
-        // Exit model section when we hit another top-level key
         if in_model_section
             && !line.starts_with(' ')
             && !line.starts_with('\t')
@@ -100,9 +206,7 @@ fn replace_yaml_value(yaml: &str, key: &str, new_value: &str) -> String {
             in_model_section = false;
         }
 
-        // Replace the key if we're in the model section
         if in_model_section && trimmed.starts_with(&format!("{}:", key)) {
-            // Determine indentation
             let indent = line.len() - line.trim_start().len();
             let indent_str: String = " ".repeat(indent);
             result.push_str(&format!("{}{}: {}\n", indent_str, key, new_value));
@@ -144,7 +248,7 @@ mod tests {
     }
 }
 
-// === Toolset functions ===
+// === Toolset functions (Task 10.2) ===
 
 /// All available toolsets in Hermes
 pub fn get_all_toolsets() -> Vec<ToolsetInfo> {
@@ -252,7 +356,6 @@ pub fn get_all_toolsets() -> Vec<ToolsetInfo> {
 pub fn read_disabled_toolsets(config_path: &Path) -> Result<Vec<String>, std::io::Error> {
     let raw_yaml = std::fs::read_to_string(config_path)?;
 
-    // Find disabled_toolsets section
     let mut disabled = Vec::new();
     let mut in_disabled = false;
 
@@ -261,7 +364,6 @@ pub fn read_disabled_toolsets(config_path: &Path) -> Result<Vec<String>, std::io
 
         if trimmed == "disabled_toolsets:" {
             in_disabled = true;
-            // Check if it's an empty list
             if trimmed.ends_with("[]") || trimmed.ends_with("disabled_toolsets: []") {
                 in_disabled = false;
             }
@@ -269,13 +371,11 @@ pub fn read_disabled_toolsets(config_path: &Path) -> Result<Vec<String>, std::io
         }
 
         if in_disabled {
-            // Exit if we hit another key (not indented)
             if !line.starts_with(' ') && !line.starts_with('\t') && !trimmed.is_empty() {
                 in_disabled = false;
                 continue;
             }
 
-            // Extract toolset name from list item (e.g., "  - terminal")
             if let Some(name) = trimmed.strip_prefix("- ") {
                 let name = name.trim().trim_matches('\'').trim_matches('"');
                 if !name.is_empty() {
@@ -301,7 +401,6 @@ pub fn update_disabled_toolsets(
     for line in raw_yaml.lines() {
         let trimmed = line.trim();
 
-        // Find disabled_toolsets section
         if trimmed.starts_with("disabled_toolsets:") {
             in_disabled = true;
             result.push_str(&format!(
@@ -312,18 +411,14 @@ pub fn update_disabled_toolsets(
             continue;
         }
 
-        // Skip old list items
         if in_disabled {
             if trimmed.starts_with("- ") || trimmed.is_empty() {
                 continue;
             }
-            // Hit next key
             in_disabled = false;
         }
 
-        // Keep lines that are not in disabled_toolsets
         if !skipped_old || !in_disabled {
-            // Skip the old disabled_toolsets line if we haven't processed it yet
             if line.trim().starts_with("disabled_toolsets:") && !skipped_old {
                 continue;
             }
@@ -332,7 +427,6 @@ pub fn update_disabled_toolsets(
         }
     }
 
-    // If disabled_toolsets wasn't found, add it after agent section
     if !result.contains("disabled_toolsets:") {
         result = result.replacen(
             "agent:\n",

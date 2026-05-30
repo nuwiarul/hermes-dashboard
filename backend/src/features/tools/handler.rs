@@ -135,3 +135,70 @@ pub async fn toggle_toolset(
         enabled: payload.enabled,
     }))
 }
+
+// === Send Message handlers (Task 10.3) ===
+
+/// GET /api/tools/targets — List available messaging targets
+pub async fn get_targets() -> Result<Json<TargetsResponse>, crate::shared::error::AppError> {
+    let targets = repository::list_send_targets().map_err(|e| {
+        crate::shared::error::AppError::Internal(format!("Failed to list targets: {}", e))
+    })?;
+
+    Ok(Json(TargetsResponse { targets }))
+}
+
+/// POST /api/tools/send-message — Send a message to the Hermes agent
+pub async fn send_message(
+    Json(payload): Json<SendMessageRequest>,
+) -> Result<Json<SendMessageResponse>, crate::shared::error::AppError> {
+    // Validate message
+    if payload.message.trim().is_empty() {
+        return Ok(Json(SendMessageResponse {
+            success: false,
+            message: "Message cannot be empty".to_string(),
+            platform: None,
+            chat_id: None,
+            message_id: None,
+        }));
+    }
+
+    // Send via hermes send
+    let result = repository::send_message(&payload.message, payload.target.as_deref()).map_err(
+        |e| crate::shared::error::AppError::Internal(format!("Send failed: {}", e)),
+    )?;
+
+    let success = result
+        .get("success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let platform = result
+        .get("platform")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let chat_id = result
+        .get("chat_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let message_id = result
+        .get("message_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let note = result
+        .get("note")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Message sent");
+
+    tracing::info!(
+        "Message sent: platform={:?}, chat_id={:?}",
+        platform,
+        chat_id
+    );
+
+    Ok(Json(SendMessageResponse {
+        success,
+        message: note.to_string(),
+        platform,
+        chat_id,
+        message_id,
+    }))
+}
