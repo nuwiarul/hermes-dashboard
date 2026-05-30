@@ -32,7 +32,7 @@ let statsInterval: ReturnType<typeof setInterval> | null = null;
 export function connectWebSocket() {
     if (!browser || ws) return;
     
-    const wsUrl = `wss://api-hermes.vinrul.my.id/ws`;
+    const wsUrl = import.meta.env.VITE_WS_URL;
     
     console.log('Connecting to WebSocket:', wsUrl);
     ws = new WebSocket(wsUrl);
