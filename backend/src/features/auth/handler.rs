@@ -4,11 +4,29 @@ use std::sync::Arc;
 use crate::AppState;
 use super::dto::{LoginRequest, LoginResponse};
 use super::jwt;
+use crate::shared::validation::{validate_username, validate_password};
 
 pub async fn login(
     Extension(state): Extension<Arc<AppState>>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Response, (StatusCode, Json<LoginResponse>)> {
+) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    // Validate input
+    let username = validate_username(&payload.username)
+        .map_err(|e| {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                "success": false,
+                "message": e.message
+            })))
+        })?;
+
+    let password = validate_password(&payload.password)
+        .map_err(|e| {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                "success": false,
+                "message": e.message
+            })))
+        })?;
+
     // Get credentials from env
     let valid_username = std::env::var("DASHBOARD_USERNAME")
         .unwrap_or_else(|_| "admin".to_string());
@@ -16,13 +34,13 @@ pub async fn login(
         .unwrap_or_else(|_| "admin".to_string());
 
     // Validate credentials
-    if payload.username != valid_username || payload.password != valid_password {
+    if username != valid_username || password != valid_password {
         return Err((
             StatusCode::UNAUTHORIZED,
-            Json(LoginResponse {
-                success: false,
-                message: "Invalid username or password".to_string(),
-            }),
+            Json(serde_json::json!({
+                "success": false,
+                "message": "Invalid username or password"
+            })),
         ));
     }
 
@@ -31,10 +49,10 @@ pub async fn login(
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(LoginResponse {
-                    success: false,
-                    message: format!("Failed to generate token: {}", e),
-                }),
+                Json(serde_json::json!({
+                    "success": false,
+                    "message": format!("Failed to generate token: {}", e)
+                })),
             )
         })?;
 
