@@ -56,6 +56,12 @@
 - [ ] Task 9.3: Database Query Optimization
 - [ ] Task 9.4: Asset Optimization (minify, compress)
 
+### Phase 10: Remote Control (Tools Menu)
+- [ ] Task 10.1: Switch Model — ganti model dari web UI
+- [ ] Task 10.2: Tool Manager — enable/disable tools
+- [ ] Task 10.3: Send Message — kirim pesan ke agent dari web
+- [ ] Task 10.4: Gateway Control — restart/status gateway
+
 ---
 
 **Architecture:** 
@@ -2025,3 +2031,122 @@ cd frontend && npm test
 3. Optimize images
 4. Enable gzip/brotli compression
 5. Add cache headers
+
+## Phase 10: Remote Control (Tools Menu)
+
+### Task 10.1: Switch Model
+**Objective:** Ganti model AI dari web UI tanpa SSH
+
+**Files:**
+- Create: `backend/src/features/tools/mod.rs`
+- Create: `backend/src/features/tools/handler.rs`
+- Create: `backend/src/features/tools/dto.rs`
+- Create: `frontend/src/routes/tools/+page.svelte`
+- Create: `frontend/src/lib/features/tools/components/ModelSwitcher.svelte`
+
+**Steps:**
+1. Create backend API `GET /api/tools/models` — list available models from config
+2. Create backend API `POST /api/tools/switch-model` — update model in config.yaml
+3. Read available models from `~/.hermes/config.yaml` (model section)
+4. Create ModelSwitcher component — dropdown with current model + available options
+5. Show confirmation before switching
+6. Display success/error message after switch
+7. Add model status indicator (current model in header updates)
+
+**Notes:**
+- Only edit `config.yaml` (model section), NOT credentials
+- Require admin auth for this action
+- Log model changes for audit trail
+
+---
+
+### Task 10.2: Tool Manager
+**Objective:** Enable/disable tools dari web UI
+
+**Files:**
+- Create: `backend/src/features/tools/handler.rs` (add endpoints)
+- Create: `frontend/src/lib/features/tools/components/ToolManager.svelte`
+
+**Steps:**
+1. Create backend API `GET /api/tools/list` — list all available tools with status
+2. Create backend API `POST /api/tools/toggle` — enable/disable a tool
+3. Read tools from Hermes tool registry or config
+4. Create ToolManager component — list with toggle switches
+5. Group tools by category (file, web, terminal, etc.)
+6. Show tool description and current status
+7. Require admin auth for toggle actions
+
+---
+
+### Task 10.3: Send Message
+**Objective:** Kirim pesan ke agent langsung dari web UI
+
+**Files:**
+- Create: `backend/src/features/tools/handler.rs` (add endpoint)
+- Create: `frontend/src/lib/features/tools/components/MessageSender.svelte`
+
+**Steps:**
+1. Create backend API `POST /api/tools/send-message` — send message to agent
+2. Integrate with Hermes message queue or CLI
+3. Create MessageSender component — text input + send button
+4. Show message history (last N messages)
+5. Display agent response in real-time (via WebSocket)
+6. Require admin auth for sending messages
+
+---
+
+### Task 10.4: Gateway Control
+**Objective:** Restart/status control untuk Hermes gateway
+
+**Files:**
+- Create: `backend/src/features/tools/handler.rs` (add endpoints)
+- Create: `frontend/src/lib/features/tools/components/GatewayControl.svelte`
+
+**Steps:**
+1. Create backend API `GET /api/tools/gateway/status` — check gateway status
+2. Create backend API `POST /api/tools/gateway/restart` — restart gateway
+3. Execute `hermes` CLI commands via backend
+4. Create GatewayControl component — status indicator + restart button
+5. Show gateway uptime, connected platforms, active sessions
+6. Confirmation dialog before restart
+7. Require admin auth for restart action
+8. Show real-time status updates via WebSocket
+
+---
+
+### Tools Page Layout
+
+```
+┌─────────────────────────────────────────────┐
+│  🔧 Tools                                   │
+├─────────────────────────────────────────────┤
+│                                             │
+│  ┌─────────────────────────────────────┐   │
+│  │  🔄 Switch Model                    │   │
+│  │  Current: mimo-v2.5                 │   │
+│  │  [MiMo v2.5 ▼]  [Switch]           │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  ┌─────────────────────────────────────┐   │
+│  │  🛠️ Tool Manager                    │   │
+│  │  ✅ Terminal      [ON]              │   │
+│  │  ✅ Web Search    [ON]              │   │
+│  │  ❌ File Write    [OFF]             │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  ┌─────────────────────────────────────┐   │
+│  │  💬 Send Message                    │   │
+│  │  [Type message here...]     [Send]  │   │
+│  │  > Last: "Check crypto prices"      │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  ┌─────────────────────────────────────┐   │
+│  │  ⚡ Gateway Control                 │   │
+│  │  Status: Online ✅                  │   │
+│  │  Uptime: 2d 5h                      │   │
+│  │  Platforms: Telegram, Discord       │   │
+│  │  [Restart Gateway]                  │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+└─────────────────────────────────────────────┘
+```
