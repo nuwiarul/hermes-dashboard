@@ -11,6 +11,7 @@ mod routes;
 pub mod shared;
 
 use features::auth::jwt::JwtConfig;
+use middleware::rate_limit::RateLimitState;
 
 pub struct AppState {
     pub db: sqlx::sqlite::SqlitePool,
@@ -33,6 +34,8 @@ async fn main() -> anyhow::Result<()> {
         config: app_config,
         jwt: jwt_config,
     });
+
+    let rate_limit_state = Arc::new(RateLimitState::new());
 
     let cors_origins: Vec<http::HeaderValue> = state
         .config
@@ -62,7 +65,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/health", get(routes::health::handler))
         .route("/api/auth/login", post(features::auth::handler::login))
         .route("/api/auth/logout", post(features::auth::handler::logout))
-        .route("/api/auth/me", get(features::auth::handler::me));
+        .route("/api/auth/me", get(features::auth::handler::me))
+        .layer(axum::middleware::from_fn_with_state(
+            rate_limit_state.clone(),
+            middleware::rate_limit::rate_limit_login,
+        ));
 
     // Protected routes (auth required)
     let protected_routes = Router::new()
@@ -71,7 +78,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/config", get(features::config::handler::get_config))
         .route("/api/cron", get(features::cron::handler::list_jobs))
         .route("/ws", get(routes::ws::ws_handler))
-        .layer(axum::middleware::from_fn(middleware::auth::require_auth));
+        .layer(axum::middleware::from_fn(middleware::auth::require_auth))
+        .layer(axum::middleware::from_fn_with_state(
+            rate_limit_state.clone(),
+            middleware::rate_limit::rate_limit_api,
+        ));
 
     let app = public_routes
         .merge(protected_routes)
@@ -81,7 +92,10 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Server running on {}", addr);
 
-    axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
+    axum::serve(
+        tokio::net::TcpListener::bind(addr).await?,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    ).await?;
 
     Ok(())
 }

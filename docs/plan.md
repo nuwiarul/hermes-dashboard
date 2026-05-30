@@ -25,17 +25,17 @@
 
 ### Phase 4: Advanced Features
 - [x] Task 4.1: WebSocket Real-time Updates
-- [ ] Task 4.2: Cron Jobs Manager
+- [x] Task 4.2: Cron Jobs Manager
 
 ### Phase 5: Deployment
 - [x] Task 5.1: Build & Deploy Scripts
 - [x] Task 5.2: Systemd Service (Backend)
 
 ### Phase 6: Security & Authentication
-- [ ] Task 6.1: JWT Authentication Setup
-- [ ] Task 6.2: Login API
-- [ ] Task 6.3: Middleware Authorization
-- [ ] Task 6.4: Rate Limiting
+- [x] Task 6.1: JWT Authentication Setup
+- [x] Task 6.2: Login API (cookie-based)
+- [x] Task 6.3: Middleware Authorization
+- [x] Task 6.4: Rate Limiting
 - [ ] Task 6.5: Input Validation & Sanitization
 
 ### Phase 7: Responsive Design
