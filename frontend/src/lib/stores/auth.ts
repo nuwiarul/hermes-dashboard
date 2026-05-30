@@ -20,6 +20,7 @@ function createAuthStore() {
     subscribe,
 
     /// Check login status by calling /api/auth/me (validates cookie)
+    /// If access_token expired, try refresh first
     checkAuth: async () => {
       if (!browser) return;
       update(s => ({ ...s, isLoading: true }));
@@ -36,13 +37,38 @@ function createAuthStore() {
             username: data.username || null,
             isLoading: false,
           });
-        } else {
-          set({
-            isAuthenticated: false,
-            username: null,
-            isLoading: false,
-          });
+          return;
         }
+
+        // Access token invalid — try refresh
+        const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (refreshRes.ok) {
+          // Refresh succeeded — retry checkAuth
+          const retryRes = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            credentials: 'include',
+          });
+
+          if (retryRes.ok) {
+            const data = await retryRes.json();
+            set({
+              isAuthenticated: true,
+              username: data.username || null,
+              isLoading: false,
+            });
+            return;
+          }
+        }
+
+        // Both failed — not authenticated
+        set({
+          isAuthenticated: false,
+          username: null,
+          isLoading: false,
+        });
       } catch {
         set({
           isAuthenticated: false,
