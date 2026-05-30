@@ -45,22 +45,22 @@
 
 <div class="max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Sessions</h1>
-        <p class="text-gray-600">Browse and manage your AI agent sessions</p>
+    <div class="mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Sessions</h1>
+        <p class="text-sm sm:text-base text-gray-600">Browse and manage your AI agent sessions</p>
     </div>
 
     {#if loading}
         <!-- Loading Skeleton -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {#each Array(6) as _}
-                <div class="bg-white rounded-xl p-5 animate-pulse">
+                <div class="bg-white rounded-xl p-4 sm:p-5 animate-pulse">
                     <div class="flex items-center gap-2 mb-3">
-                        <div class="h-6 w-6 bg-gray-200 rounded"></div>
-                        <div class="h-5 bg-gray-200 rounded w-3/4"></div>
+                        <div class="h-5 w-5 sm:h-6 sm:w-6 bg-gray-200 rounded"></div>
+                        <div class="h-4 sm:h-5 bg-gray-200 rounded w-3/4"></div>
                     </div>
                     <div class="space-y-2">
-                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                        <div class="h-3 sm:h-4 bg-gray-200 rounded w-1/2"></div>
                         <div class="h-3 bg-gray-200 rounded w-1/3"></div>
                     </div>
                 </div>
@@ -68,55 +68,55 @@
         </div>
     {:else if error}
         <!-- Error State -->
-        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6 text-sm sm:text-base text-red-700">
             {error}
         </div>
     {:else}
         <!-- Stats Bar -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Total Sessions</p>
-                <p class="text-2xl font-bold text-gray-900">{totalSessions}</p>
+        <div class="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Total Sessions</p>
+                <p class="text-lg sm:text-2xl font-bold text-gray-900">{totalSessions}</p>
             </div>
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Active</p>
-                <p class="text-2xl font-bold text-green-600">{activeSessions}</p>
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Active</p>
+                <p class="text-lg sm:text-2xl font-bold text-green-600">{activeSessions}</p>
             </div>
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Total Messages</p>
-                <p class="text-2xl font-bold text-gray-900">{totalMessages.toLocaleString()}</p>
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Total Messages</p>
+                <p class="text-lg sm:text-2xl font-bold text-gray-900">{totalMessages.toLocaleString()}</p>
             </div>
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Filtered</p>
-                <p class="text-2xl font-bold text-blue-600">{filteredSessions.length}</p>
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Filtered</p>
+                <p class="text-lg sm:text-2xl font-bold text-blue-600">{filteredSessions.length}</p>
             </div>
         </div>
 
         <!-- Search & Filter Bar -->
-        <div class="bg-white rounded-xl p-4 shadow-sm mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
+        <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm mb-4 sm:mb-6">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <!-- Search -->
                 <div class="flex-1">
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                         <input 
                             type="text" 
-                            placeholder="Search by title, ID, or source..."
+                            placeholder="Search sessions..."
                             bind:value={search}
-                            class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                     </div>
                 </div>
                 
                 <!-- Sort -->
                 <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-500">Sort:</span>
+                    <span class="text-xs sm:text-sm text-gray-500">Sort:</span>
                     <select 
                         bind:value={sortBy}
-                        class="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
                         <option value="messages">Most Messages</option>
                     </select>
                 </div>
@@ -125,13 +125,13 @@
 
         <!-- Sessions List -->
         {#if filteredSessions.length === 0}
-            <div class="bg-white rounded-xl p-12 text-center shadow-sm">
-                <span class="text-4xl mb-4 block">🔍</span>
-                <p class="text-gray-500 text-lg">No sessions found</p>
-                <p class="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
+            <div class="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm">
+                <span class="text-3xl sm:text-4xl mb-3 sm:mb-4 block">🔍</span>
+                <p class="text-gray-500 text-base sm:text-lg">No sessions found</p>
+                <p class="text-gray-400 text-xs sm:text-sm mt-1">Try adjusting your search or filters</p>
             </div>
         {:else}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {#each filteredSessions as session (session.id)}
                     <SessionCard {session} />
                 {/each}

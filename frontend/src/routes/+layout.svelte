@@ -48,9 +48,9 @@
     <!-- Authenticated: show full layout -->
     <div class="flex min-h-screen bg-gray-100">
         <Sidebar />
-        <div class="flex-1 flex flex-col">
+        <div class="flex-1 flex flex-col min-w-0">
             <Header status={$status.online ? 'online' : 'offline'} model="mimo-v2.5" />
-            <main class="flex-1 p-6">
+            <main class="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
                 {@render children()}
             </main>
         </div>

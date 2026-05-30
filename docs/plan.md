@@ -39,7 +39,7 @@
 - [x] Task 6.5: Input Validation & Sanitization
 
 ### Phase 7: Responsive Design
-- [ ] Task 7.1: Mobile-First Layout
+- [x] Task 7.1: Mobile-First Layout
 - [ ] Task 7.2: Responsive Navigation
 - [ ] Task 7.3: Touch-Friendly Components
 - [ ] Task 7.4: Dark/Light Theme

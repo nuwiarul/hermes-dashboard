@@ -6,7 +6,6 @@
     let loading = $state(true);
     
     onMount(async () => {
-        // Wait a bit for WebSocket to connect and fetch data
         setTimeout(() => {
             loading = false;
         }, 1000);
@@ -20,21 +19,21 @@
 </script>
 
 <div class="max-w-7xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-    <p class="text-gray-600 mb-8">Welcome to Hermes Dashboard — Monitor & Control your AI Agent</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Dashboard</h1>
+    <p class="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">Monitor & Control your AI Agent</p>
     
     {#if loading}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {#each Array(4) as _}
-                <div class="bg-white rounded-xl shadow-sm p-6 animate-pulse">
-                    <div class="h-8 w-8 bg-gray-200 rounded mb-4"></div>
-                    <div class="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                    <div class="h-8 bg-gray-200 rounded w-16"></div>
+                <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 animate-pulse">
+                    <div class="h-6 w-6 sm:h-8 sm:w-8 bg-gray-200 rounded mb-3 sm:mb-4"></div>
+                    <div class="h-3 sm:h-4 bg-gray-200 rounded w-20 sm:w-24 mb-2"></div>
+                    <div class="h-5 sm:h-8 bg-gray-200 rounded w-12 sm:w-16"></div>
                 </div>
             {/each}
         </div>
     {:else}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             <StatsCard 
                 title="Total Sessions" 
                 value={formatNumber($stats.total_sessions)} 
@@ -59,42 +58,42 @@
             />
         </div>
         
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <!-- Sessions Today -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="text-lg font-semibold mb-4">Today's Activity</h3>
-                <div class="space-y-4">
+            <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Today's Activity</h3>
+                <div class="space-y-3 sm:space-y-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-gray-600">Sessions Today</span>
-                        <span class="text-2xl font-bold text-gray-900">{$stats.sessions_today || 0}</span>
+                        <span class="text-sm sm:text-base text-gray-600">Sessions Today</span>
+                        <span class="text-xl sm:text-2xl font-bold text-gray-900">{$stats.sessions_today || 0}</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-gray-600">Messages Today</span>
-                        <span class="text-2xl font-bold text-gray-900">{$stats.messages_today || 0}</span>
+                        <span class="text-sm sm:text-base text-gray-600">Messages Today</span>
+                        <span class="text-xl sm:text-2xl font-bold text-gray-900">{$stats.messages_today || 0}</span>
                     </div>
                 </div>
             </div>
             
             <!-- Active Sources -->
-            <div class="bg-white rounded-xl shadow-sm p-6">
-                <h3 class="text-lg font-semibold mb-4">Active Sources</h3>
+            <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Active Sources</h3>
                 {#if !$stats.active_sources || $stats.active_sources.length === 0}
-                    <p class="text-gray-500">No active sources</p>
+                    <p class="text-sm sm:text-base text-gray-500">No active sources</p>
                 {:else}
-                    <div class="space-y-3">
+                    <div class="space-y-2 sm:space-y-3">
                         {#each $stats.active_sources as source}
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
-                                    <span class="text-xl">
+                                    <span class="text-lg sm:text-xl">
                                         {#if source.source === 'telegram'}📱
                                         {:else if source.source === 'discord'}🎮
                                         {:else if source.source === 'cli'}💻
                                         {:else}🔗
                                         {/if}
                                     </span>
-                                    <span class="capitalize">{source.source}</span>
+                                    <span class="text-sm sm:text-base capitalize">{source.source}</span>
                                 </div>
-                                <span class="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium">
+                                <span class="bg-gray-100 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
                                     {source.count} sessions
                                 </span>
                             </div>
@@ -105,30 +104,30 @@
         </div>
         
         <!-- Token Usage -->
-        <div class="mt-8 bg-white rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold mb-4">Token Usage</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-500">Input Tokens</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_input_tokens || 0)}</p>
+        <div class="mt-6 sm:mt-8 bg-white rounded-xl shadow-sm p-4 sm:p-6">
+            <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Token Usage</h3>
+            <div class="grid grid-cols-2 gap-2 sm:gap-4">
+                <div class="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                    <p class="text-xs sm:text-sm text-gray-500">Input Tokens</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900">{formatNumber($stats.total_input_tokens || 0)}</p>
                 </div>
-                <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-500">Output Tokens</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_output_tokens || 0)}</p>
+                <div class="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                    <p class="text-xs sm:text-sm text-gray-500">Output Tokens</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900">{formatNumber($stats.total_output_tokens || 0)}</p>
                 </div>
-                <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-500">Cache Read</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_cache_read_tokens || 0)}</p>
+                <div class="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                    <p class="text-xs sm:text-sm text-gray-500">Cache Read</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900">{formatNumber($stats.total_cache_read_tokens || 0)}</p>
                 </div>
-                <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <p class="text-sm text-gray-500">Tool Calls</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_tool_calls || 0)}</p>
+                <div class="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                    <p class="text-xs sm:text-sm text-gray-500">Tool Calls</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900">{formatNumber($stats.total_tool_calls || 0)}</p>
                 </div>
             </div>
         </div>
         
         <!-- WebSocket Status -->
-        <div class="mt-6 text-center text-sm text-gray-400">
+        <div class="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-400">
             {#if $status.online}
                 <span class="text-green-500">●</span> Real-time updates active (WebSocket)
             {:else}
