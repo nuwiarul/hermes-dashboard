@@ -3,6 +3,7 @@ use std::path::PathBuf;
 pub struct AppConfig {
     pub hermes_home: PathBuf,
     pub port: u16,
+    pub cors_origins: Vec<String>,
 }
 
 impl AppConfig {
@@ -19,7 +20,18 @@ impl AppConfig {
             .parse()
             .unwrap_or(3001);
 
-        Self { hermes_home, port }
+        let cors_origins = std::env::var("CORS_ORIGINS")
+            .unwrap_or_else(|_| "https://hermes.vinrul.my.id".to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        Self {
+            hermes_home,
+            port,
+            cors_origins,
+        }
     }
 
     pub fn state_db_path(&self) -> PathBuf {

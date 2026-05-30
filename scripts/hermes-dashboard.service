@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes Dashboard Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/hermes-dashboard/backend
+ExecStart=/home/ubuntu/hermes-dashboard/backend/target/release/hermes-dashboard-backend
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+EnvironmentFile=-/home/ubuntu/hermes-dashboard/backend/.env
+
+[Install]
+WantedBy=multi-user.target
