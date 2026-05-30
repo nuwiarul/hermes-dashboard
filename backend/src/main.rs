@@ -45,6 +45,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/sessions", get(features::sessions::handler::list))
         .route("/api/stats", get(features::stats::handler::overview))
         .route("/api/config", get(features::config::handler::get_config))
+        .route("/ws", get(routes::ws::ws_handler))
         .layer(Extension(state))
         .layer(cors);
 
