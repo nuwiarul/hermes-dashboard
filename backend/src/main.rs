@@ -86,8 +86,22 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/stats", get(features::stats::handler::overview))
         .route("/api/config", get(features::config::handler::get_config))
         .route("/api/cron", get(features::cron::handler::list_jobs))
-        .route("/api/tools/models", get(features::tools::handler::get_models))
-        .route("/api/tools/switch-model", post(features::tools::handler::switch_model))
+        .route(
+            "/api/tools/models",
+            get(features::tools::handler::get_models),
+        )
+        .route(
+            "/api/tools/switch-model",
+            post(features::tools::handler::switch_model),
+        )
+        .route(
+            "/api/tools/toolsets",
+            get(features::tools::handler::get_toolsets),
+        )
+        .route(
+            "/api/tools/toggle-toolset",
+            post(features::tools::handler::toggle_toolset),
+        )
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(
