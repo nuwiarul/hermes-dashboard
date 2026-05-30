@@ -107,3 +107,31 @@ pub struct SendMessageResponse {
     pub chat_id: Option<String>,
     pub message_id: Option<String>,
 }
+
+// === Gateway Control DTOs (Task 10.4) ===
+
+/// Gateway status info
+#[derive(Debug, Serialize)]
+pub struct GatewayStatusResponse {
+    pub running: bool,
+    pub pid: Option<String>,
+    pub uptime: Option<String>,
+    pub service_name: String,
+    pub profiles: Vec<GatewayProfile>,
+    pub raw_status: String,
+}
+
+/// A gateway profile entry
+#[derive(Debug, Serialize)]
+pub struct GatewayProfile {
+    pub name: String,
+    pub active: bool,
+    pub pid: Option<String>,
+}
+
+/// Response for POST /api/tools/gateway/restart
+#[derive(Debug, Serialize)]
+pub struct GatewayRestartResponse {
+    pub success: bool,
+    pub message: String,
+}

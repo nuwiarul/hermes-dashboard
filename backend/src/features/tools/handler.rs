@@ -202,3 +202,30 @@ pub async fn send_message(
         message_id,
     }))
 }
+
+// === Gateway Control handlers (Task 10.4) ===
+
+/// GET /api/tools/gateway/status — Get gateway status
+pub async fn get_gateway_status() -> Result<Json<GatewayStatusResponse>, crate::shared::error::AppError>
+{
+    let status = repository::get_gateway_status().map_err(|e| {
+        crate::shared::error::AppError::Internal(format!("Failed to get gateway status: {}", e))
+    })?;
+
+    Ok(Json(status))
+}
+
+/// POST /api/tools/gateway/restart — Restart the gateway
+pub async fn restart_gateway() -> Result<Json<GatewayRestartResponse>, crate::shared::error::AppError>
+{
+    let output = repository::restart_gateway().map_err(|e| {
+        crate::shared::error::AppError::Internal(format!("Gateway restart failed: {}", e))
+    })?;
+
+    tracing::info!("Gateway restarted by admin");
+
+    Ok(Json(GatewayRestartResponse {
+        success: true,
+        message: format!("Gateway restarted successfully. {}", output),
+    }))
+}

@@ -2,6 +2,7 @@
     import ModelSwitcher from '$lib/components/ModelSwitcher.svelte';
     import ToolManager from '$lib/components/ToolManager.svelte';
     import SendMessage from '$lib/components/SendMessage.svelte';
+    import GatewayControl from '$lib/components/GatewayControl.svelte';
 </script>
 
 <div class="max-w-4xl mx-auto">
@@ -20,18 +21,7 @@
         <!-- Send Message -->
         <SendMessage />
         
-        <!-- Placeholder: Gateway Control -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="text-2xl">⚡</span>
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-900">Gateway Control</h2>
-                    <p class="text-sm text-gray-500">Restart/status gateway (coming soon)</p>
-                </div>
-            </div>
-            <div class="text-gray-400 text-center py-4">
-                Coming in Task 10.4
-            </div>
-        </div>
+        <!-- Gateway Control -->
+        <GatewayControl />
     </div>
 </div>

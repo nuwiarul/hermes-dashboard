@@ -451,3 +451,153 @@ fn format_disabled_list(disabled: &[String]) -> String {
         format!("[{}]", items.join(", "))
     }
 }
+
+// === Gateway Control functions (Task 10.4) ===
+
+use super::dto::{GatewayProfile, GatewayStatusResponse};
+
+/// Get gateway status by running `hermes gateway status`
+pub fn get_gateway_status() -> Result<GatewayStatusResponse, String> {
+    let output = std::process::Command::new(HERMES_BIN)
+        .args(["gateway", "status"])
+        .output()
+        .map_err(|e| format!("Failed to run hermes gateway status: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = format!("{}{}", stdout, stderr);
+
+    // Parse running status
+    let running = combined.contains("User gateway service is running")
+        || combined.contains("Active: active (running)");
+
+    // Extract PID from "PID 12345" or "PID: 12345"
+    let pid = extract_pid(&combined);
+
+    // Extract uptime from "Active: active (running) since ..."
+    let uptime = extract_uptime(&combined);
+
+    // Parse profiles from `hermes gateway list`
+    let profiles = list_gateway_profiles()?;
+
+    Ok(GatewayStatusResponse {
+        running,
+        pid,
+        uptime,
+        service_name: "hermes-gateway".to_string(),
+        profiles,
+        raw_status: combined,
+    })
+}
+
+/// Restart gateway by running `hermes gateway restart`
+pub fn restart_gateway() -> Result<String, String> {
+    let output = std::process::Command::new(HERMES_BIN)
+        .args(["gateway", "restart"])
+        .output()
+        .map_err(|e| format!("Failed to run hermes gateway restart: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if !output.status.success() {
+        return Err(format!(
+            "Gateway restart failed: {}",
+            if stderr.is_empty() { &stdout } else { &stderr }
+        ));
+    }
+
+    let combined = format!("{}{}", stdout, stderr);
+    Ok(combined)
+}
+
+/// List gateway profiles from `hermes gateway list`
+fn list_gateway_profiles() -> Result<Vec<GatewayProfile>, String> {
+    let output = std::process::Command::new(HERMES_BIN)
+        .args(["gateway", "list"])
+        .output()
+        .map_err(|e| format!("Failed to run hermes gateway list: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let mut profiles = Vec::new();
+
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        // Lines like: "  ✓ default (current)        — PID 1089550"
+        if trimmed.starts_with('✓') || trimmed.starts_with('✗') {
+            let active = trimmed.starts_with('✓');
+            // Extract name between ✓/✗ and "("
+            let name = if let Some(start) = trimmed.find(char::is_whitespace) {
+                let rest = &trimmed[start..];
+                if let Some(end) = rest.find('(') {
+                    rest[..end].trim().to_string()
+                } else {
+                    // Try to find "—" or end of line
+                    if let Some(end) = rest.find('—') {
+                        rest[..end].trim().to_string()
+                    } else {
+                        rest.trim().to_string()
+                    }
+                }
+            } else {
+                continue;
+            };
+
+            // Extract PID
+            let profile_pid = if let Some(pid_pos) = trimmed.find("PID ") {
+                Some(trimmed[pid_pos + 4..].trim().to_string())
+            } else {
+                None
+            };
+
+            profiles.push(GatewayProfile {
+                name,
+                active,
+                pid: profile_pid,
+            });
+        }
+    }
+
+    Ok(profiles)
+}
+
+/// Extract PID from status output
+fn extract_pid(text: &str) -> Option<String> {
+    for line in text.lines() {
+        // Look for "PID 12345" pattern
+        if let Some(pos) = line.find("PID ") {
+            let rest = &line[pos + 4..];
+            let pid: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+            if !pid.is_empty() {
+                return Some(pid);
+            }
+        }
+        // Look for "Main PID: 12345" pattern
+        if let Some(pos) = line.find("Main PID:") {
+            let rest = &line[pos + 9..];
+            let pid: String = rest
+                .chars()
+                .skip_while(|c| c.is_whitespace())
+                .take_while(|c| c.is_ascii_digit())
+                .collect();
+            if !pid.is_empty() {
+                return Some(pid);
+            }
+        }
+    }
+    None
+}
+
+/// Extract uptime from status output
+fn extract_uptime(text: &str) -> Option<String> {
+    for line in text.lines() {
+        // Look for "Active: active (running) since ..."
+        if line.contains("Active:") && line.contains("since") {
+            if let Some(pos) = line.find("since ") {
+                let uptime = line[pos + 6..].trim().to_string();
+                return Some(uptime);
+            }
+        }
+    }
+    None
+}

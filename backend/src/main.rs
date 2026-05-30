@@ -110,6 +110,14 @@ async fn main() -> anyhow::Result<()> {
             "/api/tools/send-message",
             post(features::tools::handler::send_message),
         )
+        .route(
+            "/api/tools/gateway/status",
+            get(features::tools::handler::get_gateway_status),
+        )
+        .route(
+            "/api/tools/gateway/restart",
+            post(features::tools::handler::restart_gateway),
+        )
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(
