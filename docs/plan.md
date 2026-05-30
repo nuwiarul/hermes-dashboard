@@ -59,8 +59,8 @@
 ### Phase 10: Remote Control (Tools Menu)
 - [x] Task 10.1: Switch Model — ganti model dari web UI
 - [x] Task 10.2: Tool Manager — enable/disable tools
-- [ ] Task 10.3: Send Message — kirim pesan ke agent dari web
-- [ ] Task 10.4: Gateway Control — restart/status gateway
+- [x] Task 10.3: Send Message — kirim pesan ke agent dari web
+- [x] Task 10.4: Gateway Control — restart/status gateway
 
 ---
 
