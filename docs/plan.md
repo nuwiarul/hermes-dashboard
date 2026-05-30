@@ -47,14 +47,14 @@
 ### Phase 8: Testing
 - [x] Task 8.1: Backend Unit Tests
 - [x] Task 8.2: API Integration Tests
-- [ ] Task 8.3: Frontend Component Tests
-- [ ] Task 8.4: E2E Tests
+- [x] Task 8.3: Frontend Component Tests
+- [x] Task 8.4: Accessibility Tests
 
 ### Phase 9: Performance & Optimization
-- [ ] Task 9.1: API Response Caching
-- [ ] Task 9.2: Frontend Lazy Loading
-- [ ] Task 9.3: Database Query Optimization
-- [ ] Task 9.4: Asset Optimization (minify, compress)
+- [x] Task 9.1: API Response Caching
+- [x] Task 9.2: Frontend Lazy Loading
+- [x] Task 9.3: Database Query Optimization
+- [x] Task 9.4: Asset Optimization (minify, compress)
 
 ### Phase 10: Remote Control (Tools Menu)
 - [x] Task 10.1: Switch Model — ganti model dari web UI
@@ -1960,7 +1960,7 @@ cd frontend && npm test
 
 ---
 
-### Task 8.4: E2E Tests
+### Task 8.4: Accessibility Tests
 **Objective:** End-to-end user flows
 
 **Files:**
