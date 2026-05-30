@@ -28,8 +28,33 @@
 - [ ] Task 4.2: Cron Jobs Manager
 
 ### Phase 5: Deployment
-- [ ] Task 5.1: Build & Deploy Scripts
-- [ ] Task 5.2: Systemd Service (Backend)
+- [x] Task 5.1: Build & Deploy Scripts
+- [x] Task 5.2: Systemd Service (Backend)
+
+### Phase 6: Security & Authentication
+- [ ] Task 6.1: JWT Authentication Setup
+- [ ] Task 6.2: Login API
+- [ ] Task 6.3: Middleware Authorization
+- [ ] Task 6.4: Rate Limiting
+- [ ] Task 6.5: Input Validation & Sanitization
+
+### Phase 7: Responsive Design
+- [ ] Task 7.1: Mobile-First Layout
+- [ ] Task 7.2: Responsive Navigation
+- [ ] Task 7.3: Touch-Friendly Components
+- [ ] Task 7.4: Dark/Light Theme
+
+### Phase 8: Testing
+- [ ] Task 8.1: Backend Unit Tests
+- [ ] Task 8.2: API Integration Tests
+- [ ] Task 8.3: Frontend Component Tests
+- [ ] Task 8.4: E2E Tests
+
+### Phase 9: Performance & Optimization
+- [ ] Task 9.1: API Response Caching
+- [ ] Task 9.2: Frontend Lazy Loading
+- [ ] Task 9.3: Database Query Optimization
+- [ ] Task 9.4: Asset Optimization (minify, compress)
 
 ---
 
@@ -1732,3 +1757,268 @@ F12 → Toggle Device Toolbar (Ctrl+Shift+M)
 - Pixel 7
 ```
 
+
+
+---
+
+## Phase 6: Security & Authentication
+
+### Task 6.1: JWT Authentication Setup
+**Objective:** Setup JWT token generation & validation
+
+**Files:**
+- Create: `backend/src/features/auth/mod.rs`
+- Create: `backend/src/features/auth/jwt.rs`
+
+**Steps:**
+1. Add `jsonwebtoken` crate to Cargo.toml
+2. Create JWT helper (generate, validate, decode)
+3. Add JWT_SECRET to .env
+4. Create token refresh logic
+
+---
+
+### Task 6.2: Login API
+**Objective:** Login endpoint untuk akses dashboard
+
+**Files:**
+- Create: `backend/src/features/auth/handler.rs`
+- Create: `backend/src/features/auth/dto.rs`
+
+**Steps:**
+1. Create POST /api/auth/login endpoint
+2. Validate username/password from config
+3. Generate JWT token (access + refresh)
+4. Return token in HttpOnly cookie
+
+---
+
+### Task 6.3: Middleware Authorization
+**Objective:** Protected routes middleware
+
+**Files:**
+- Create: `backend/src/middleware/auth.rs`
+
+**Steps:**
+1. Create auth middleware extractor
+2. Validate JWT from cookie/header
+3. Reject unauthorized requests (401)
+4. Apply to protected routes
+
+---
+
+### Task 6.4: Rate Limiting
+**Objective:** Prevent abuse with rate limiting
+
+**Files:**
+- Create: `backend/src/middleware/rate_limit.rs`
+
+**Steps:**
+1. Add `governor` crate for rate limiting
+2. Configure limits per endpoint
+3. Apply to login & API endpoints
+4. Return 429 Too Many Requests
+
+---
+
+### Task 6.5: Input Validation & Sanitization
+**Objective:** Validate and sanitize all inputs
+
+**Files:**
+- Create: `backend/src/shared/validation.rs`
+
+**Steps:**
+1. Add `validator` crate with derive
+2. Create validation rules for DTOs
+3. Sanitize string inputs
+4. Return 400 Bad Request for invalid input
+
+---
+
+## Phase 7: Responsive Design
+
+### Task 7.1: Mobile-First Layout
+**Objective:** Base layout yang responsive
+
+**Files:**
+- Modify: `frontend/src/routes/+layout.svelte`
+- Create: `frontend/src/lib/shared/components/Layout.svelte`
+
+**Steps:**
+1. Create mobile-first sidebar/header
+2. Implement collapsible navigation
+3. Add responsive breakpoints
+4. Test on mobile/tablet/desktop
+
+---
+
+### Task 7.2: Responsive Navigation
+**Objective:** Navigation yang adaptif
+
+**Files:**
+- Create: `frontend/src/lib/shared/components/Navbar.svelte`
+- Create: `frontend/src/lib/shared/components/Sidebar.svelte`
+
+**Steps:**
+1. Mobile: hamburger menu
+2. Tablet: collapsible sidebar
+3. Desktop: fixed sidebar
+4. Add active state indicators
+
+---
+
+### Task 7.3: Touch-Friendly Components
+**Objective:** Components yang nyaman di mobile
+
+**Files:**
+- Modify: `frontend/src/lib/shared/components/*.svelte`
+
+**Steps:**
+1. Increase touch targets (min 44px)
+2. Add swipe gestures for cards
+3. Implement pull-to-refresh
+4. Add haptic feedback (if supported)
+
+---
+
+### Task 7.4: Dark/Light Theme
+**Objective:** Theme switching
+
+**Files:**
+- Create: `frontend/src/lib/shared/utils/theme.ts`
+- Modify: `frontend/src/app.html`
+
+**Steps:**
+1. Create theme context/store
+2. Implement CSS variables for themes
+3. Add toggle button in navbar
+4. Persist preference in localStorage
+
+---
+
+## Phase 8: Testing
+
+### Task 8.1: Backend Unit Tests
+**Objective:** Unit tests untuk backend logic
+
+**Files:**
+- Create: `backend/src/features/*/tests.rs`
+
+**Steps:**
+1. Test JWT generation/validation
+2. Test config parsing
+3. Test database queries
+4. Test error handling
+
+**Run:**
+```bash
+cd backend && cargo test
+```
+
+---
+
+### Task 8.2: API Integration Tests
+**Objective:** Test API endpoints end-to-end
+
+**Files:**
+- Create: `backend/tests/api_tests.rs`
+
+**Steps:**
+1. Setup test database
+2. Test health endpoint
+3. Test sessions list
+4. Test stats overview
+5. Test auth endpoints
+
+---
+
+### Task 8.3: Frontend Component Tests
+**Objective:** Test Svelte components
+
+**Files:**
+- Create: `frontend/src/lib/**/*.test.ts`
+
+**Steps:**
+1. Setup Vitest + Testing Library
+2. Test StatsCard component
+3. Test SessionCard component
+4. Test Navigation component
+
+**Run:**
+```bash
+cd frontend && npm test
+```
+
+---
+
+### Task 8.4: E2E Tests
+**Objective:** End-to-end user flows
+
+**Files:**
+- Create: `frontend/tests/e2e/`
+
+**Steps:**
+1. Setup Playwright
+2. Test login flow
+3. Test dashboard load
+4. Test sessions page
+5. Test mobile responsiveness
+
+---
+
+## Phase 9: Performance & Optimization
+
+### Task 9.1: API Response Caching
+**Objective:** Cache API responses
+
+**Files:**
+- Create: `backend/src/middleware/cache.rs`
+
+**Steps:**
+1. Add caching layer (in-memory)
+2. Cache GET /api/stats (5 min)
+3. Cache GET /api/sessions (1 min)
+4. Add cache invalidation
+
+---
+
+### Task 9.2: Frontend Lazy Loading
+**Objective:** Lazy load routes & components
+
+**Files:**
+- Modify: `frontend/src/routes/**/*.svelte`
+
+**Steps:**
+1. Implement dynamic imports
+2. Lazy load chart components
+3. Add loading skeletons
+4. Implement prefetch on hover
+
+---
+
+### Task 9.3: Database Query Optimization
+**Objective:** Optimize SQLite queries
+
+**Files:**
+- Modify: `backend/src/features/*/repository.rs`
+
+**Steps:**
+1. Add database indexes
+2. Optimize N+1 queries
+3. Use EXPLAIN QUERY PLAN
+4. Add connection pooling config
+
+---
+
+### Task 9.4: Asset Optimization
+**Objective:** Optimize frontend assets
+
+**Files:**
+- Modify: `frontend/vite.config.ts`
+
+**Steps:**
+1. Enable tree shaking
+2. Minify JS/CSS
+3. Optimize images
+4. Enable gzip/brotli compression
+5. Add cache headers
