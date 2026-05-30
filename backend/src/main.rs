@@ -6,6 +6,7 @@ use tower_http::cors::CorsLayer;
 mod config;
 mod db;
 mod features;
+mod middleware;
 mod routes;
 pub mod shared;
 
@@ -45,15 +46,23 @@ async fn main() -> anyhow::Result<()> {
         .allow_methods(tower_http::cors::Any)
         .allow_headers(tower_http::cors::Any);
 
-    let app = Router::new()
+    // Public routes (no auth required)
+    let public_routes = Router::new()
         .route("/api/health", get(routes::health::handler))
         .route("/api/auth/login", post(features::auth::handler::login))
-        .route("/api/auth/logout", post(features::auth::handler::logout))
+        .route("/api/auth/logout", post(features::auth::handler::logout));
+
+    // Protected routes (auth required)
+    let protected_routes = Router::new()
         .route("/api/sessions", get(features::sessions::handler::list))
         .route("/api/stats", get(features::stats::handler::overview))
         .route("/api/config", get(features::config::handler::get_config))
         .route("/api/cron", get(features::cron::handler::list_jobs))
         .route("/ws", get(routes::ws::ws_handler))
+        .layer(axum::middleware::from_fn(middleware::auth::require_auth));
+
+    let app = public_routes
+        .merge(protected_routes)
         .layer(Extension(state))
         .layer(cors);
 
