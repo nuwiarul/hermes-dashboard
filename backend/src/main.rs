@@ -28,6 +28,8 @@ async fn main() -> anyhow::Result<()> {
     let jwt_config = JwtConfig::from_env();
     let db_pool = db::connect(&app_config.state_db_path()).await?;
     let port = app_config.port;
+    let rate_limit_login_max = app_config.rate_limit_login_max;
+    let rate_limit_api_max = app_config.rate_limit_api_max;
 
     let state = Arc::new(AppState {
         db: db_pool,
@@ -35,7 +37,10 @@ async fn main() -> anyhow::Result<()> {
         jwt: jwt_config,
     });
 
-    let rate_limit_state = Arc::new(RateLimitState::new());
+    let rate_limit_state = Arc::new(RateLimitState::new(
+        rate_limit_login_max,
+        rate_limit_api_max,
+    ));
 
     let cors_origins: Vec<http::HeaderValue> = state
         .config

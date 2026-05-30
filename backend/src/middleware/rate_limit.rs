@@ -27,13 +27,13 @@ pub struct RateLimitState {
 }
 
 impl RateLimitState {
-    pub fn new() -> Self {
+    pub fn new(login_max: u32, api_max: u32) -> Self {
         Self {
             login_limiter: Mutex::new(HashMap::new()),
             api_limiter: Mutex::new(HashMap::new()),
-            login_max: 5,               // 5 requests per minute
+            login_max,
             login_window: Duration::from_secs(60),
-            api_max: 60,                 // 60 requests per minute
+            api_max,
             api_window: Duration::from_secs(60),
         }
     }
@@ -104,8 +104,15 @@ mod tests {
 
     #[test]
     fn test_rate_limit_state_creation() {
-        let state = RateLimitState::new();
+        let state = RateLimitState::new(5, 60);
         assert_eq!(state.login_max, 5);
         assert_eq!(state.api_max, 60);
+    }
+
+    #[test]
+    fn test_rate_limit_custom_values() {
+        let state = RateLimitState::new(10, 120);
+        assert_eq!(state.login_max, 10);
+        assert_eq!(state.api_max, 120);
     }
 }
