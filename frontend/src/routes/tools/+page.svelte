@@ -1,5 +1,6 @@
 <script lang="ts">
     import ModelSwitcher from '$lib/components/ModelSwitcher.svelte';
+    import ToolManager from '$lib/components/ToolManager.svelte';
 </script>
 
 <div class="max-w-4xl mx-auto">
@@ -12,20 +13,10 @@
         <!-- Model Switcher -->
         <ModelSwitcher />
         
-        <!-- Placeholder for future tools -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="text-2xl">🛠️</span>
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-900">Tool Manager</h2>
-                    <p class="text-sm text-gray-500">Enable/disable tools (coming soon)</p>
-                </div>
-            </div>
-            <div class="text-gray-400 text-center py-4">
-                Coming in Task 10.2
-            </div>
-        </div>
+        <!-- Tool Manager -->
+        <ToolManager />
         
+        <!-- Placeholder for future tools -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50">
             <div class="flex items-center gap-3 mb-4">
                 <span class="text-2xl">💬</span>

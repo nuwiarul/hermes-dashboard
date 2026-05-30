@@ -161,8 +161,8 @@ pub async fn refresh(
     })?;
 
     // Generate new token pair
-    let (new_access, new_refresh) = jwt::generate_token_pair(&claims.sub, &state.jwt).map_err(
-        |e| {
+    let (new_access, new_refresh) =
+        jwt::generate_token_pair(&claims.sub, &state.jwt).map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
@@ -170,8 +170,7 @@ pub async fn refresh(
                     "message": format!("Failed to generate token: {}", e)
                 })),
             )
-        },
-    )?;
+        })?;
 
     // Build new cookies
     let access_cookie = format!(

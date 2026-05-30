@@ -37,3 +37,37 @@ pub struct SwitchModelResponse {
     pub message: String,
     pub current_model: Option<String>,
 }
+
+// === Toolset DTOs ===
+
+/// A toolset with its status
+#[derive(Debug, Serialize)]
+pub struct ToolsetInfo {
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+    pub category: String,
+}
+
+/// Response for GET /api/tools/toolsets
+#[derive(Debug, Serialize)]
+pub struct ToolsetsResponse {
+    pub toolsets: Vec<ToolsetInfo>,
+    pub disabled_count: usize,
+}
+
+/// Request for POST /api/tools/toggle-toolset
+#[derive(Debug, Deserialize)]
+pub struct ToggleToolsetRequest {
+    pub name: String,
+    pub enabled: bool,
+}
+
+/// Response for POST /api/tools/toggle-toolset
+#[derive(Debug, Serialize)]
+pub struct ToggleToolsetResponse {
+    pub success: bool,
+    pub message: String,
+    pub toolset: String,
+    pub enabled: bool,
+}
