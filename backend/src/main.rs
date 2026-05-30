@@ -20,6 +20,7 @@ pub struct AppState {
     pub db: sqlx::sqlite::SqlitePool,
     pub config: config::AppConfig,
     pub jwt: JwtConfig,
+    pub cache: shared::cache::ApiCache,
 }
 
 #[tokio::main]
@@ -38,6 +39,7 @@ async fn main() -> anyhow::Result<()> {
         db: db_pool,
         config: app_config,
         jwt: jwt_config,
+        cache: shared::cache::ApiCache::new(),
     });
 
     let rate_limit_state = Arc::new(RateLimitState::new(
