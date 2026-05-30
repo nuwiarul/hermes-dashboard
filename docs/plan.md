@@ -36,7 +36,7 @@
 - [x] Task 6.2: Login API (cookie-based)
 - [x] Task 6.3: Middleware Authorization
 - [x] Task 6.4: Rate Limiting
-- [ ] Task 6.5: Input Validation & Sanitization
+- [x] Task 6.5: Input Validation & Sanitization
 
 ### Phase 7: Responsive Design
 - [ ] Task 7.1: Mobile-First Layout
