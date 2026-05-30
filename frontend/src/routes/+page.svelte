@@ -1,32 +1,15 @@
 <script lang="ts">
     import StatsCard from '$lib/components/StatsCard.svelte';
+    import { stats, status } from '$lib/stores/status';
     import { onMount } from 'svelte';
     
-    let stats = $state({
-        total_sessions: 0,
-        total_messages: 0,
-        sessions_today: 0,
-        messages_today: 0,
-        active_sources: [] as { source: string; count: number }[],
-        total_tool_calls: 0,
-        estimated_cost_usd: 0,
-    });
-    
     let loading = $state(true);
-    let error = $state<string | null>(null);
     
     onMount(async () => {
-        try {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL;
-            const res = await fetch(`${baseUrl}/api/stats`);
-            if (!res.ok) throw new Error('Failed to fetch stats');
-            stats = await res.json();
-        } catch (e) {
-            console.error('Failed to fetch stats:', e);
-            error = 'Failed to load stats';
-        } finally {
+        // Wait a bit for WebSocket to connect and fetch data
+        setTimeout(() => {
             loading = false;
-        }
+        }, 1000);
     });
 
     function formatNumber(n: number): string {
@@ -50,32 +33,28 @@
                 </div>
             {/each}
         </div>
-    {:else if error}
-        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
-            {error}
-        </div>
     {:else}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatsCard 
                 title="Total Sessions" 
-                value={formatNumber(stats.total_sessions)} 
+                value={formatNumber($stats.total_sessions)} 
                 icon="💬" 
                 trend="up"
             />
             <StatsCard 
                 title="Total Messages" 
-                value={formatNumber(stats.total_messages)} 
+                value={formatNumber($stats.total_messages)} 
                 icon="📨" 
                 trend="up"
             />
             <StatsCard 
                 title="Tool Calls" 
-                value={formatNumber(stats.total_tool_calls)} 
+                value={formatNumber($stats.total_tool_calls || 0)} 
                 icon="🔧"
             />
             <StatsCard 
                 title="Estimated Cost" 
-                value={`$${stats.estimated_cost_usd.toFixed(2)}`} 
+                value={`$${($stats.estimated_cost_usd || 0).toFixed(2)}`} 
                 icon="💰"
             />
         </div>
@@ -87,11 +66,11 @@
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-gray-600">Sessions Today</span>
-                        <span class="text-2xl font-bold text-gray-900">{stats.sessions_today}</span>
+                        <span class="text-2xl font-bold text-gray-900">{$stats.sessions_today || 0}</span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-gray-600">Messages Today</span>
-                        <span class="text-2xl font-bold text-gray-900">{stats.messages_today}</span>
+                        <span class="text-2xl font-bold text-gray-900">{$stats.messages_today || 0}</span>
                     </div>
                 </div>
             </div>
@@ -99,11 +78,11 @@
             <!-- Active Sources -->
             <div class="bg-white rounded-xl shadow-sm p-6">
                 <h3 class="text-lg font-semibold mb-4">Active Sources</h3>
-                {#if stats.active_sources.length === 0}
+                {#if !$stats.active_sources || $stats.active_sources.length === 0}
                     <p class="text-gray-500">No active sources</p>
                 {:else}
                     <div class="space-y-3">
-                        {#each stats.active_sources as source}
+                        {#each $stats.active_sources as source}
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
                                     <span class="text-xl">
@@ -131,21 +110,30 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">Input Tokens</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber(stats.total_input_tokens)}</p>
+                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_input_tokens || 0)}</p>
                 </div>
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">Output Tokens</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber(stats.total_output_tokens)}</p>
+                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_output_tokens || 0)}</p>
                 </div>
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">Cache Read</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber(stats.total_cache_read_tokens)}</p>
+                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_cache_read_tokens || 0)}</p>
                 </div>
                 <div class="text-center p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">Tool Calls</p>
-                    <p class="text-xl font-bold text-gray-900">{formatNumber(stats.total_tool_calls)}</p>
+                    <p class="text-xl font-bold text-gray-900">{formatNumber($stats.total_tool_calls || 0)}</p>
                 </div>
             </div>
+        </div>
+        
+        <!-- WebSocket Status -->
+        <div class="mt-6 text-center text-sm text-gray-400">
+            {#if $status.online}
+                <span class="text-green-500">●</span> Real-time updates active (WebSocket)
+            {:else}
+                <span class="text-red-500">●</span> WebSocket disconnected — auto-reconnecting...
+            {/if}
         </div>
     {/if}
 </div>
