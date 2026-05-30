@@ -84,7 +84,7 @@
     
     <div 
         bind:this={cardEl}
-        class="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-all cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 active:bg-gray-50 dark:active:bg-gray-700 min-h-[100px]"
+        class="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-all cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 active:bg-gray-50 dark:active:bg-gray-700 min-h-[100px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
         style="transform: translateX({swipeOffset}px); transition: {isSwiping ? 'none' : 'transform 0.2s ease'}"
         onclick={handleTap}
         role="button"

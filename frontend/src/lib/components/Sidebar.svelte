@@ -68,7 +68,7 @@
             <a 
                 href={item.href}
                 onclick={handleNavClick}
-                class="group relative flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-all duration-150 min-h-[44px]
+                class="group relative flex items-center gap-3 px-3 py-3 rounded-lg mb-1 transition-all duration-150 min-h-[44px] focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none
                        {isActive(item.href) 
                          ? 'bg-blue-600/20 text-blue-400' 
                          : 'text-gray-300 hover:bg-gray-800 dark:hover:bg-gray-700 active:bg-gray-700 dark:active:bg-gray-600'}"

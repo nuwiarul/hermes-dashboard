@@ -15,7 +15,7 @@
 
 <button 
     onclick={handleTap}
-    class="w-full text-left bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-5 md:p-6 hover:shadow-md transition-all active:scale-[0.98] active:bg-gray-50 dark:active:bg-gray-700 min-h-[80px] sm:min-h-[100px] cursor-pointer border border-gray-100 dark:border-gray-700"
+    class="w-full text-left bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-5 md:p-6 hover:shadow-md transition-all active:scale-[0.98] active:bg-gray-50 dark:active:bg-gray-700 min-h-[80px] sm:min-h-[100px] cursor-pointer border border-gray-100 dark:border-gray-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
 >
     <div class="flex items-center justify-between mb-2 sm:mb-3 md:mb-4">
         <span class="text-xl sm:text-2xl md:text-3xl">{icon}</span>
