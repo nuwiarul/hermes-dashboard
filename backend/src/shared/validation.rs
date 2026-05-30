@@ -150,4 +150,49 @@ mod tests {
         assert!(validate_password("").is_err());
         assert!(validate_password("short").is_err()); // too short
     }
+
+    #[test]
+    fn test_validate_text() {
+        assert!(validate_text("hello", "name", 10).is_ok());
+        assert!(validate_text("", "name", 10).is_err()); // empty
+        assert!(validate_text("a".repeat(11).as_str(), "name", 10).is_err()); // too long
+    }
+
+    #[test]
+    fn test_validate_username_max_length() {
+        let long_name = "a".repeat(51);
+        assert!(validate_username(&long_name).is_err());
+        
+        let max_name = "a".repeat(50);
+        assert!(validate_username(&max_name).is_ok());
+    }
+
+    #[test]
+    fn test_validate_password_max_length() {
+        let long_pass = "a".repeat(101);
+        assert!(validate_password(&long_pass).is_err());
+        
+        let max_pass = "a".repeat(100);
+        assert!(validate_password(&max_pass).is_ok());
+    }
+
+    #[test]
+    fn test_sanitize_removes_control_chars() {
+        let input = "hello\x01\x02\x03world";
+        let result = sanitize_string(input);
+        assert_eq!(result, "helloworld");
+    }
+
+    #[test]
+    fn test_sanitize_allows_newlines_and_tabs() {
+        let input = "hello\nworld\t!";
+        let result = sanitize_string(input);
+        assert_eq!(result, "hello\nworld\t!");
+    }
+
+    #[test]
+    fn test_validation_error_display() {
+        let err = ValidationError::new("field", "message");
+        assert_eq!(format!("{}", err), "field: message");
+    }
 }

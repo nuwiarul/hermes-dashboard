@@ -60,3 +60,67 @@ impl AppConfig {
         self.hermes_home.join("logs")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_app_config_paths() {
+        let config = AppConfig {
+            hermes_home: PathBuf::from("/home/test/.hermes"),
+            port: 3001,
+            cors_origins: vec![],
+            rate_limit_login_max: 5,
+            rate_limit_api_max: 60,
+        };
+
+        assert_eq!(config.state_db_path(), PathBuf::from("/home/test/.hermes/state.db"));
+        assert_eq!(config.config_path(), PathBuf::from("/home/test/.hermes/config.yaml"));
+        assert_eq!(config.logs_path(), PathBuf::from("/home/test/.hermes/logs"));
+    }
+
+    #[test]
+    fn test_config_from_env_defaults() {
+        // Clear env vars to test defaults
+        std::env::remove_var("HERMES_HOME");
+        std::env::remove_var("PORT");
+        std::env::remove_var("CORS_ORIGINS");
+        std::env::remove_var("RATE_LIMIT_LOGIN_MAX");
+        std::env::remove_var("RATE_LIMIT_API_MAX");
+
+        let config = AppConfig::from_env();
+        assert_eq!(config.port, 3001);
+        assert_eq!(config.rate_limit_login_max, 5);
+        assert_eq!(config.rate_limit_api_max, 60);
+        assert!(!config.cors_origins.is_empty());
+    }
+
+    #[test]
+    fn test_config_from_env_custom() {
+        std::env::set_var("PORT", "8080");
+        std::env::set_var("RATE_LIMIT_LOGIN_MAX", "10");
+        std::env::set_var("RATE_LIMIT_API_MAX", "120");
+        std::env::set_var("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000");
+
+        let config = AppConfig::from_env();
+        assert_eq!(config.port, 8080);
+        assert_eq!(config.rate_limit_login_max, 10);
+        assert_eq!(config.rate_limit_api_max, 120);
+        assert_eq!(config.cors_origins.len(), 2);
+        assert!(config.cors_origins.contains(&"http://localhost:5173".to_string()));
+
+        std::env::remove_var("PORT");
+        std::env::remove_var("RATE_LIMIT_LOGIN_MAX");
+        std::env::remove_var("RATE_LIMIT_API_MAX");
+        std::env::remove_var("CORS_ORIGINS");
+    }
+
+    #[test]
+    fn test_config_invalid_port_falls_back() {
+        std::env::set_var("PORT", "not-a-number");
+        let config = AppConfig::from_env();
+        assert_eq!(config.port, 3001); // fallback
+        std::env::remove_var("PORT");
+    }
+}
