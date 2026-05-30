@@ -1,5 +1,6 @@
 <script lang="ts">
     import ModelSwitcher from '$lib/components/ModelSwitcher.svelte';
+    import SendMessage from '$lib/components/SendMessage.svelte';
 </script>
 
 <div class="max-w-4xl mx-auto">
@@ -12,7 +13,10 @@
         <!-- Model Switcher -->
         <ModelSwitcher />
         
-        <!-- Placeholder for future tools -->
+        <!-- Send Message -->
+        <SendMessage />
+        
+        <!-- Placeholder: Tool Manager -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50">
             <div class="flex items-center gap-3 mb-4">
                 <span class="text-2xl">🛠️</span>
@@ -26,19 +30,7 @@
             </div>
         </div>
         
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="text-2xl">💬</span>
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-900">Send Message</h2>
-                    <p class="text-sm text-gray-500">Send messages to your agent (coming soon)</p>
-                </div>
-            </div>
-            <div class="text-gray-400 text-center py-4">
-                Coming in Task 10.3
-            </div>
-        </div>
-        
+        <!-- Placeholder: Gateway Control -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50">
             <div class="flex items-center gap-3 mb-4">
                 <span class="text-2xl">⚡</span>

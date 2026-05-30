@@ -88,6 +88,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/cron", get(features::cron::handler::list_jobs))
         .route("/api/tools/models", get(features::tools::handler::get_models))
         .route("/api/tools/switch-model", post(features::tools::handler::switch_model))
+        .route("/api/tools/targets", get(features::tools::handler::get_targets))
+        .route("/api/tools/send-message", post(features::tools::handler::send_message))
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(
