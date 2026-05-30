@@ -35,7 +35,7 @@
 - [x] Task 6.1: JWT Authentication Setup
 - [x] Task 6.2: Login API (cookie-based)
 - [x] Task 6.3: Middleware Authorization
-- [ ] Task 6.4: Rate Limiting
+- [x] Task 6.4: Rate Limiting
 - [ ] Task 6.5: Input Validation & Sanitization
 
 ### Phase 7: Responsive Design
