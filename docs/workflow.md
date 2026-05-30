@@ -360,7 +360,9 @@ gh pr create
 
 # After merge, cleanup
 git checkout main && git pull
-git branch -d feat/xxx
+git push origin --delete feat/xxx   # Hapus remote branch
+git branch -d feat/xxx              # Hapus local branch
+git fetch --prune                   # Bersihkan tracking branches
 ```
 
 ### Build Commands
@@ -484,11 +486,27 @@ main ← Production (always deployable)
   ├── docs/xxx ← Documentation
   └── refactor/xxx ← Code improvements
 ```
-
 **Rules:**
 1. Never push directly to main
 2. Always create PR for review
 3. Merge only after approval
+4. Delete branch after merge (otomatis via GitHub atau manual)
+5. **Setelah merge PR, HAPUS branch yang dipakai** — baik remote maupun local
+
+### Branch Cleanup After Merge
+
+```bash
+# Remote branch (otomatis jika centang "Delete branch" saat merge di GitHub)
+git push origin --delete feat/xxx
+
+# Local branch
+git branch -d feat/xxx
+
+# Prune remote tracking branches
+git fetch --prune
+```
+
+**Tip:** Saat merge PR di GitHub, centang opsi **"Delete branch after merge"** agar otomatis terhapus.
 4. Delete branch after merge
 
 ---
