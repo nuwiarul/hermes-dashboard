@@ -43,3 +43,37 @@ impl From<sqlx::Error> for AppError {
         AppError::Database(err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_app_error_not_found() {
+        let err = AppError::NotFound;
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn test_app_error_internal() {
+        let err = AppError::Internal("something went wrong".to_string());
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn test_app_error_from_sqlx() {
+        let sqlx_err = sqlx::Error::PoolClosed;
+        let app_err = AppError::from(sqlx_err);
+        let response = app_err.into_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn test_app_error_debug() {
+        let err = AppError::NotFound;
+        let debug_str = format!("{:?}", err);
+        assert!(debug_str.contains("NotFound"));
+    }
+}

@@ -189,4 +189,78 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_token_pair_generation() {
+        let config = JwtConfig {
+            secret: "test-secret-key-for-jwt".to_string(),
+            access_duration: Duration::minutes(15),
+            refresh_duration: Duration::days(7),
+            access_duration_secs: 900,
+            refresh_duration_secs: 604800,
+        };
+
+        let (access, refresh) = generate_token_pair("testuser", &config).unwrap();
+        
+        // Both tokens should be valid
+        let access_claims = validate_access_token(&access, &config).unwrap();
+        let refresh_claims = validate_refresh_token(&refresh, &config).unwrap();
+        
+        assert_eq!(access_claims.sub, "testuser");
+        assert_eq!(refresh_claims.sub, "testuser");
+        assert_eq!(access_claims.token_type, "access");
+        assert_eq!(refresh_claims.token_type, "refresh");
+    }
+
+    #[test]
+    fn test_different_secrets_reject() {
+        let config1 = JwtConfig {
+            secret: "secret-one".to_string(),
+            access_duration: Duration::minutes(15),
+            refresh_duration: Duration::days(7),
+            access_duration_secs: 900,
+            refresh_duration_secs: 604800,
+        };
+        let config2 = JwtConfig {
+            secret: "secret-two".to_string(),
+            access_duration: Duration::minutes(15),
+            refresh_duration: Duration::days(7),
+            access_duration_secs: 900,
+            refresh_duration_secs: 604800,
+        };
+
+        let token = generate_access_token("testuser", &config1).unwrap();
+        let result = validate_access_token(&token, &config2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_jwt_config_from_env() {
+        std::env::set_var("JWT_SECRET", "my-test-secret");
+        std::env::set_var("JWT_ACCESS_DURATION", "30");
+        std::env::set_var("JWT_REFRESH_DURATION", "14");
+
+        let config = JwtConfig::from_env();
+        assert_eq!(config.secret, "my-test-secret");
+        assert_eq!(config.access_duration, Duration::minutes(30));
+        assert_eq!(config.refresh_duration, Duration::days(14));
+        assert_eq!(config.access_duration_secs, 1800);
+        assert_eq!(config.refresh_duration_secs, 1209600);
+
+        std::env::remove_var("JWT_SECRET");
+        std::env::remove_var("JWT_ACCESS_DURATION");
+        std::env::remove_var("JWT_REFRESH_DURATION");
+    }
+
+    #[test]
+    fn test_jwt_config_defaults() {
+        std::env::remove_var("JWT_SECRET");
+        std::env::remove_var("JWT_ACCESS_DURATION");
+        std::env::remove_var("JWT_REFRESH_DURATION");
+
+        let config = JwtConfig::from_env();
+        assert!(!config.secret.is_empty()); // generated random secret
+        assert_eq!(config.access_duration, Duration::minutes(15));
+        assert_eq!(config.refresh_duration, Duration::days(7));
+    }
 }
