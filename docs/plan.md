@@ -1814,10 +1814,13 @@ F12 → Toggle Device Toolbar (Ctrl+Shift+M)
 - Create: `backend/src/middleware/rate_limit.rs`
 
 **Steps:**
-1. Add `governor` crate for rate limiting
+1. ~~Add `governor` crate for rate limiting~~ Implemented with custom sliding window
 2. Configure limits per endpoint
 3. Apply to login & API endpoints
 4. Return 429 Too Many Requests
+5. Rate limit values configurable via `.env` (`RATE_LIMIT_LOGIN_MAX`, `RATE_LIMIT_API_MAX`)
+
+**Status:** ✅ Complete — Login: 5 req/min, API: 60 req/min (configurable)
 
 ---
 
