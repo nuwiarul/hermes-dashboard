@@ -43,14 +43,26 @@ async fn main() -> anyhow::Result<()> {
 
     let cors = CorsLayer::new()
         .allow_origin(cors_origins)
-        .allow_methods(tower_http::cors::Any)
-        .allow_headers(tower_http::cors::Any);
+        .allow_methods([
+            http::Method::GET,
+            http::Method::POST,
+            http::Method::PUT,
+            http::Method::DELETE,
+            http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            http::header::CONTENT_TYPE,
+            http::header::AUTHORIZATION,
+            http::header::COOKIE,
+        ])
+        .allow_credentials(true);
 
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/api/health", get(routes::health::handler))
         .route("/api/auth/login", post(features::auth::handler::login))
-        .route("/api/auth/logout", post(features::auth::handler::logout));
+        .route("/api/auth/logout", post(features::auth::handler::logout))
+        .route("/api/auth/me", get(features::auth::handler::me));
 
     // Protected routes (auth required)
     let protected_routes = Router::new()

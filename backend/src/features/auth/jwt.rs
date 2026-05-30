@@ -21,6 +21,10 @@ pub struct JwtConfig {
     pub secret: String,
     pub access_duration: Duration,
     pub refresh_duration: Duration,
+    /// Duration in seconds for cookie Max-Age
+    pub access_duration_secs: i64,
+    /// Duration in seconds for cookie Max-Age
+    pub refresh_duration_secs: i64,
 }
 
 impl JwtConfig {
@@ -46,10 +50,15 @@ impl JwtConfig {
             .parse()
             .unwrap_or(7);
 
+        let access_duration = Duration::minutes(access_minutes);
+        let refresh_duration = Duration::days(refresh_days);
+
         Self {
             secret,
-            access_duration: Duration::minutes(access_minutes),
-            refresh_duration: Duration::days(refresh_days),
+            access_duration_secs: access_duration.num_seconds(),
+            refresh_duration_secs: refresh_duration.num_seconds(),
+            access_duration,
+            refresh_duration,
         }
     }
 }
@@ -134,6 +143,8 @@ mod tests {
             secret: "test-secret-key-for-jwt".to_string(),
             access_duration: Duration::minutes(15),
             refresh_duration: Duration::days(7),
+            access_duration_secs: 900,
+            refresh_duration_secs: 604800,
         };
 
         let token = generate_access_token("testuser", &config).unwrap();
@@ -149,6 +160,8 @@ mod tests {
             secret: "test-secret-key-for-jwt".to_string(),
             access_duration: Duration::minutes(15),
             refresh_duration: Duration::days(7),
+            access_duration_secs: 900,
+            refresh_duration_secs: 604800,
         };
 
         let token = generate_refresh_token("testuser", &config).unwrap();
@@ -164,6 +177,8 @@ mod tests {
             secret: "test-secret-key-for-jwt".to_string(),
             access_duration: Duration::minutes(15),
             refresh_duration: Duration::days(7),
+            access_duration_secs: 900,
+            refresh_duration_secs: 604800,
         };
 
         let token = generate_access_token("testuser", &config).unwrap();
