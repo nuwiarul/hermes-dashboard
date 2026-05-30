@@ -1,6 +1,8 @@
 use super::dto::SessionDto;
 use sqlx::sqlite::SqlitePool;
 
+/// Fetch sessions with a combined query that also returns total count.
+/// This avoids a separate COUNT(*) query.
 pub async fn find_all(db: &SqlitePool, limit: i64) -> Result<Vec<SessionDto>, sqlx::Error> {
     let sessions = sqlx::query_as::<_, SessionDto>(
         "SELECT 
