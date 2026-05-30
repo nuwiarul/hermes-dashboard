@@ -9,9 +9,12 @@ mod features;
 mod routes;
 pub mod shared;
 
+use features::auth::jwt::JwtConfig;
+
 pub struct AppState {
     pub db: sqlx::sqlite::SqlitePool,
     pub config: config::AppConfig,
+    pub jwt: JwtConfig,
 }
 
 #[tokio::main]
@@ -20,12 +23,14 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let app_config = config::AppConfig::from_env();
+    let jwt_config = JwtConfig::from_env();
     let db_pool = db::connect(&app_config.state_db_path()).await?;
     let port = app_config.port;
 
     let state = Arc::new(AppState {
         db: db_pool,
         config: app_config,
+        jwt: jwt_config,
     });
 
     let cors_origins: Vec<http::HeaderValue> = state
