@@ -30,10 +30,10 @@
 
     function getStateColor(state: string): string {
         switch (state) {
-            case 'scheduled': return 'bg-green-100 text-green-700';
-            case 'paused': return 'bg-yellow-100 text-yellow-700';
-            case 'completed': return 'bg-blue-100 text-blue-700';
-            default: return 'bg-gray-100 text-gray-700';
+            case 'scheduled': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+            case 'paused': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
+            case 'completed': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
+            default: return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
         }
     }
 
@@ -48,146 +48,103 @@
 </script>
 
 <div class="max-w-7xl mx-auto">
-    <!-- Header -->
     <div class="mb-6 sm:mb-8">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Cron Jobs</h1>
-        <p class="text-sm sm:text-base text-gray-600">Manage scheduled tasks for your AI agent</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2">Cron Jobs</h1>
+        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Manage scheduled tasks for your AI agent</p>
     </div>
 
     {#if loading}
-        <!-- Loading Skeleton -->
         <div class="space-y-3 sm:space-y-4">
             {#each Array(3) as _}
-                <div class="bg-white rounded-xl p-4 sm:p-6 animate-pulse">
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 animate-pulse border border-gray-100 dark:border-gray-700">
                     <div class="flex items-center gap-3 mb-3 sm:mb-4">
-                        <div class="h-5 w-5 sm:h-6 sm:w-6 bg-gray-200 rounded"></div>
-                        <div class="h-4 sm:h-5 bg-gray-200 rounded w-1/3"></div>
-                        <div class="h-4 sm:h-5 bg-gray-200 rounded w-16 sm:w-20 ml-auto"></div>
+                        <div class="h-5 w-5 sm:h-6 sm:w-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div class="h-4 sm:h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+                        <div class="h-4 sm:h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 sm:w-20 ml-auto"></div>
                     </div>
                     <div class="space-y-2">
-                        <div class="h-3 sm:h-4 bg-gray-200 rounded w-1/2"></div>
-                        <div class="h-3 bg-gray-200 rounded w-1/4"></div>
+                        <div class="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
                     </div>
                 </div>
             {/each}
         </div>
     {:else if error}
-        <!-- Error State -->
-        <div class="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6 text-sm sm:text-base text-red-700">
-            {error}
-        </div>
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 sm:p-6 text-sm sm:text-base text-red-700 dark:text-red-400">{error}</div>
     {:else}
-        <!-- Stats Bar -->
         <div class="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
-            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
-                <p class="text-xs sm:text-sm text-gray-500">Total Jobs</p>
-                <p class="text-lg sm:text-2xl font-bold text-gray-900">{jobs.length}</p>
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total Jobs</p>
+                <p class="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{jobs.length}</p>
             </div>
-            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
-                <p class="text-xs sm:text-sm text-gray-500">Active</p>
-                <p class="text-lg sm:text-2xl font-bold text-green-600">{activeCount}</p>
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Active</p>
+                <p class="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">{activeCount}</p>
             </div>
-            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
-                <p class="text-xs sm:text-sm text-gray-500">Paused</p>
-                <p class="text-lg sm:text-2xl font-bold text-yellow-600">{pausedCount}</p>
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+                <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Paused</p>
+                <p class="text-lg sm:text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pausedCount}</p>
             </div>
         </div>
 
-        <!-- Filter Bar -->
-        <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm mb-4 sm:mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm mb-4 sm:mb-6 border border-gray-100 dark:border-gray-700">
             <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
-                <span class="text-xs sm:text-sm text-gray-500 shrink-0">Filter:</span>
-                <button 
-                    onclick={() => filter = 'all'}
-                    class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}"
-                >
-                    All ({jobs.length})
-                </button>
-                <button 
-                    onclick={() => filter = 'active'}
-                    class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}"
-                >
-                    Active ({activeCount})
-                </button>
-                <button 
-                    onclick={() => filter = 'paused'}
-                    class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'paused' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'}"
-                >
-                    Paused ({pausedCount})
-                </button>
+                <span class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 shrink-0">Filter:</span>
+                <button onclick={() => filter = 'all'} class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'all' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 active:bg-gray-300 dark:active:bg-gray-500'}">All ({jobs.length})</button>
+                <button onclick={() => filter = 'active'} class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 active:bg-gray-300 dark:active:bg-gray-500'}">Active ({activeCount})</button>
+                <button onclick={() => filter = 'paused'} class="px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 min-h-[44px] {filter === 'paused' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 active:bg-gray-300 dark:active:bg-gray-500'}">Paused ({pausedCount})</button>
             </div>
         </div>
 
-        <!-- Jobs List -->
         {#if filteredJobs.length === 0}
-            <div class="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-8 sm:p-12 text-center shadow-sm border border-gray-100 dark:border-gray-700">
                 <span class="text-3xl sm:text-4xl mb-3 sm:mb-4 block">⏰</span>
                 {#if jobs.length === 0}
-                    <p class="text-gray-500 text-base sm:text-lg">No cron jobs configured</p>
-                    <p class="text-gray-400 text-xs sm:text-sm mt-1">Create one using the Hermes agent</p>
+                    <p class="text-gray-500 dark:text-gray-400 text-base sm:text-lg">No cron jobs configured</p>
+                    <p class="text-gray-400 dark:text-gray-500 text-xs sm:text-sm mt-1">Create one using the Hermes agent</p>
                 {:else}
-                    <p class="text-gray-500 text-base sm:text-lg">No {filter} jobs found</p>
+                    <p class="text-gray-500 dark:text-gray-400 text-base sm:text-lg">No {filter} jobs found</p>
                 {/if}
             </div>
         {:else}
             <div class="space-y-3 sm:space-y-4">
                 {#each filteredJobs as job (job.id)}
-                    <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-all border border-gray-100 hover:border-blue-200">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800">
                         <div class="flex items-start justify-between gap-3 sm:gap-4">
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 sm:gap-3 mb-2">
                                     <span class="text-base sm:text-lg">{getStateIcon(job.state)}</span>
-                                    <h3 class="font-semibold text-sm sm:text-lg text-gray-900 truncate">
-                                        {job.name || 'Unnamed Job'}
-                                    </h3>
-                                    <span class="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-medium {getStateColor(job.state)} shrink-0">
-                                        {job.state}
-                                    </span>
+                                    <h3 class="font-semibold text-sm sm:text-lg text-gray-900 dark:text-gray-100 truncate">{job.name || 'Unnamed Job'}</h3>
+                                    <span class="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-medium {getStateColor(job.state)} shrink-0">{job.state}</span>
                                 </div>
                                 
-                                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">
-                                    <span class="flex items-center gap-1">
-                                        📅 {job.schedule}
-                                    </span>
+                                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
+                                    <span class="flex items-center gap-1">📅 {job.schedule}</span>
                                     {#if job.deliver.length > 0}
-                                        <span class="text-gray-300">•</span>
-                                        <span class="flex items-center gap-1">
-                                            📤 {job.deliver.join(', ')}
-                                        </span>
+                                        <span class="text-gray-300 dark:text-gray-600">•</span>
+                                        <span class="flex items-center gap-1">📤 {job.deliver.join(', ')}</span>
                                     {/if}
                                     {#if job.skills.length > 0}
-                                        <span class="text-gray-300">•</span>
-                                        <span class="flex items-center gap-1">
-                                            🛠️ {job.skills.join(', ')}
-                                        </span>
+                                        <span class="text-gray-300 dark:text-gray-600">•</span>
+                                        <span class="flex items-center gap-1">🛠️ {job.skills.join(', ')}</span>
                                     {/if}
                                 </div>
 
                                 {#if job.prompt}
-                                    <p class="text-xs sm:text-sm text-gray-600 bg-gray-50 rounded-lg p-2 sm:p-3 font-mono truncate">
-                                        {job.prompt}
-                                    </p>
+                                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3 font-mono truncate">{job.prompt}</p>
                                 {/if}
 
-                                <div class="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3 text-[10px] sm:text-xs text-gray-400">
-                                    {#if job.next_run}
-                                        <span>Next: {job.next_run}</span>
-                                    {/if}
-                                    {#if job.last_run}
-                                        <span>Last: {job.last_run}</span>
-                                    {/if}
-                                    {#if job.script}
-                                        <span>Script: {job.script}</span>
-                                    {/if}
-                                    {#if job.no_agent}
-                                        <span class="bg-gray-100 px-1.5 sm:px-2 py-0.5 rounded">no-agent</span>
-                                    {/if}
+                                <div class="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+                                    {#if job.next_run}<span>Next: {job.next_run}</span>{/if}
+                                    {#if job.last_run}<span>Last: {job.last_run}</span>{/if}
+                                    {#if job.script}<span>Script: {job.script}</span>{/if}
+                                    {#if job.no_agent}<span class="bg-gray-100 dark:bg-gray-700 px-1.5 sm:px-2 py-0.5 rounded">no-agent</span>{/if}
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-100">
-                            <p class="text-[10px] sm:text-xs text-gray-400 font-mono truncate">ID: {job.id}</p>
+                        <div class="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700">
+                            <p class="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono truncate">ID: {job.id}</p>
                         </div>
                     </div>
                 {/each}

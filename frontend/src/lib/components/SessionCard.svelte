@@ -45,7 +45,7 @@
     }
 
     function getStatusColor(ended_at: number | null): string {
-        return ended_at ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700';
+        return ended_at ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
     }
 
     function getStatus(ended_at: number | null): string {
@@ -63,19 +63,13 @@
             onSwipe: (direction, distance) => {
                 if (direction === 'left') {
                     haptic(10);
-                    // Could reveal actions menu
                 } else if (direction === 'right') {
                     haptic(5);
                 }
                 swipeOffset = 0;
             },
-            onSwipeStart: () => {
-                isSwiping = true;
-            },
-            onSwipeEnd: () => {
-                isSwiping = false;
-                swipeOffset = 0;
-            },
+            onSwipeStart: () => { isSwiping = true; },
+            onSwipeEnd: () => { isSwiping = false; swipeOffset = 0; },
             threshold: 60
         });
         
@@ -84,15 +78,13 @@
 </script>
 
 <div class="relative overflow-hidden rounded-xl">
-    <!-- Swipe action background (revealed on swipe left) -->
     <div class="absolute inset-0 flex items-center justify-end gap-2 px-4 bg-blue-500 rounded-xl">
         <span class="text-white text-sm font-medium">📋 Copy ID</span>
     </div>
     
-    <!-- Card -->
     <div 
         bind:this={cardEl}
-        class="relative bg-white rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-all cursor-pointer border border-gray-100 hover:border-blue-200 active:bg-gray-50 min-h-[100px]"
+        class="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-all cursor-pointer border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 active:bg-gray-50 dark:active:bg-gray-700 min-h-[100px]"
         style="transform: translateX({swipeOffset}px); transition: {isSwiping ? 'none' : 'transform 0.2s ease'}"
         onclick={handleTap}
         role="button"
@@ -102,20 +94,20 @@
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="text-lg">{getSourceIcon(session.source)}</span>
-                    <h3 class="font-semibold text-base sm:text-lg text-gray-900 truncate">
+                    <h3 class="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100 truncate">
                         {session.title || 'Untitled Session'}
                     </h3>
                 </div>
                 
-                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                     <span class="flex items-center gap-1">
                         <span class="capitalize">{session.source || 'unknown'}</span>
                     </span>
-                    <span class="text-gray-300">•</span>
+                    <span class="text-gray-300 dark:text-gray-600">•</span>
                     <span class="flex items-center gap-1">
                         💬 {session.message_count || 0}
                     </span>
-                    <span class="text-gray-300">•</span>
+                    <span class="text-gray-300 dark:text-gray-600">•</span>
                     <span class="flex items-center gap-1">
                         🤖 {session.model || 'unknown'}
                     </span>
@@ -126,14 +118,14 @@
                 <span class="text-[10px] sm:text-xs px-2 py-1 rounded-full font-medium {getStatusColor(session.ended_at)}">
                     {getStatus(session.ended_at)}
                 </span>
-                <span class="text-[10px] sm:text-xs text-gray-400">
+                <span class="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
                     {formatDate(session.started_at)}
                 </span>
             </div>
         </div>
         
-        <div class="mt-3 pt-3 border-t border-gray-100">
-            <p class="text-[10px] sm:text-xs text-gray-400 font-mono truncate">ID: {session.id}</p>
+        <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <p class="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 font-mono truncate">ID: {session.id}</p>
         </div>
     </div>
 </div>
