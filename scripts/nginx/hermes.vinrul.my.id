@@ -41,15 +41,51 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Cache static assets (JS, CSS, images)
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+    # Cache immutable assets (Vite content-hashed files)
+    location ~* /_app/immutable/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        access_log off;
     }
 
-    # Gzip compression
+    # Cache other static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|webp|avif)$ {
+        expires 30d;
+        add_header Cache-Control "public";
+        access_log off;
+    }
+
+    # Pre-compressed Brotli (if available)
+    location ~* \.br$ {
+        gzip off;
+        add_header Content-Encoding br;
+        default_type application/javascript;
+    }
+
+    # Pre-compressed Gzip
+    location ~* \.gz$ {
+        gzip off;
+        add_header Content-Encoding gzip;
+        default_type application/javascript;
+    }
+
+    # Gzip compression (fallback for non-precompressed)
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml
+        application/xml+rss
+        application/manifest+json
+        image/svg+xml;
 }
 
 # NOTE: Tidak ada /api atau /ws proxy — Frontend langsung panggil
