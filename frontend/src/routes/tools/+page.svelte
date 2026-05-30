@@ -6,22 +6,15 @@
 </script>
 
 <div class="max-w-4xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Tools</h1>
-        <p class="text-gray-600">Remote control for your AI agent</p>
+    <div class="mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Tools</h1>
+        <p class="text-sm sm:text-base text-gray-600">Remote control for your AI agent</p>
     </div>
     
-    <div class="space-y-6">
-        <!-- Model Switcher -->
+    <div class="space-y-4 sm:space-y-6">
         <ModelSwitcher />
-        
-        <!-- Tool Manager -->
         <ToolManager />
-        
-        <!-- Send Message -->
         <SendMessage />
-        
-        <!-- Gateway Control -->
         <GatewayControl />
     </div>
 </div>

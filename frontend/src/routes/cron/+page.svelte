@@ -49,23 +49,23 @@
 
 <div class="max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Cron Jobs</h1>
-        <p class="text-gray-600">Manage scheduled tasks for your AI agent</p>
+    <div class="mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Cron Jobs</h1>
+        <p class="text-sm sm:text-base text-gray-600">Manage scheduled tasks for your AI agent</p>
     </div>
 
     {#if loading}
         <!-- Loading Skeleton -->
-        <div class="space-y-4">
+        <div class="space-y-3 sm:space-y-4">
             {#each Array(3) as _}
-                <div class="bg-white rounded-xl p-6 animate-pulse">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="h-6 w-6 bg-gray-200 rounded"></div>
-                        <div class="h-5 bg-gray-200 rounded w-1/3"></div>
-                        <div class="h-5 bg-gray-200 rounded w-20 ml-auto"></div>
+                <div class="bg-white rounded-xl p-4 sm:p-6 animate-pulse">
+                    <div class="flex items-center gap-3 mb-3 sm:mb-4">
+                        <div class="h-5 w-5 sm:h-6 sm:w-6 bg-gray-200 rounded"></div>
+                        <div class="h-4 sm:h-5 bg-gray-200 rounded w-1/3"></div>
+                        <div class="h-4 sm:h-5 bg-gray-200 rounded w-16 sm:w-20 ml-auto"></div>
                     </div>
                     <div class="space-y-2">
-                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                        <div class="h-3 sm:h-4 bg-gray-200 rounded w-1/2"></div>
                         <div class="h-3 bg-gray-200 rounded w-1/4"></div>
                     </div>
                 </div>
@@ -73,45 +73,45 @@
         </div>
     {:else if error}
         <!-- Error State -->
-        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6 text-sm sm:text-base text-red-700">
             {error}
         </div>
     {:else}
         <!-- Stats Bar -->
-        <div class="grid grid-cols-3 gap-4 mb-6">
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Total Jobs</p>
-                <p class="text-2xl font-bold text-gray-900">{jobs.length}</p>
+        <div class="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Total Jobs</p>
+                <p class="text-lg sm:text-2xl font-bold text-gray-900">{jobs.length}</p>
             </div>
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Active</p>
-                <p class="text-2xl font-bold text-green-600">{activeCount}</p>
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Active</p>
+                <p class="text-lg sm:text-2xl font-bold text-green-600">{activeCount}</p>
             </div>
-            <div class="bg-white rounded-xl p-4 shadow-sm">
-                <p class="text-sm text-gray-500">Paused</p>
-                <p class="text-2xl font-bold text-yellow-600">{pausedCount}</p>
+            <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm">
+                <p class="text-xs sm:text-sm text-gray-500">Paused</p>
+                <p class="text-lg sm:text-2xl font-bold text-yellow-600">{pausedCount}</p>
             </div>
         </div>
 
         <!-- Filter Bar -->
-        <div class="bg-white rounded-xl p-4 shadow-sm mb-6">
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-500">Filter:</span>
+        <div class="bg-white rounded-xl p-3 sm:p-4 shadow-sm mb-4 sm:mb-6">
+            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
+                <span class="text-xs sm:text-sm text-gray-500 shrink-0">Filter:</span>
                 <button 
                     onclick={() => filter = 'all'}
-                    class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {filter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 {filter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
                 >
                     All ({jobs.length})
                 </button>
                 <button 
                     onclick={() => filter = 'active'}
-                    class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {filter === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 {filter === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
                 >
                     Active ({activeCount})
                 </button>
                 <button 
                     onclick={() => filter = 'paused'}
-                    class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {filter === 'paused' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 {filter === 'paused' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
                 >
                     Paused ({pausedCount})
                 </button>
@@ -120,32 +120,32 @@
 
         <!-- Jobs List -->
         {#if filteredJobs.length === 0}
-            <div class="bg-white rounded-xl p-12 text-center shadow-sm">
-                <span class="text-4xl mb-4 block">⏰</span>
+            <div class="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm">
+                <span class="text-3xl sm:text-4xl mb-3 sm:mb-4 block">⏰</span>
                 {#if jobs.length === 0}
-                    <p class="text-gray-500 text-lg">No cron jobs configured</p>
-                    <p class="text-gray-400 text-sm mt-1">Create one using the Hermes agent</p>
+                    <p class="text-gray-500 text-base sm:text-lg">No cron jobs configured</p>
+                    <p class="text-gray-400 text-xs sm:text-sm mt-1">Create one using the Hermes agent</p>
                 {:else}
-                    <p class="text-gray-500 text-lg">No {filter} jobs found</p>
+                    <p class="text-gray-500 text-base sm:text-lg">No {filter} jobs found</p>
                 {/if}
             </div>
         {:else}
-            <div class="space-y-4">
+            <div class="space-y-3 sm:space-y-4">
                 {#each filteredJobs as job (job.id)}
-                    <div class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all border border-gray-100 hover:border-blue-200">
-                        <div class="flex items-start justify-between gap-4">
+                    <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-all border border-gray-100 hover:border-blue-200">
+                        <div class="flex items-start justify-between gap-3 sm:gap-4">
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <span class="text-lg">{getStateIcon(job.state)}</span>
-                                    <h3 class="font-semibold text-lg text-gray-900 truncate">
+                                <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <span class="text-base sm:text-lg">{getStateIcon(job.state)}</span>
+                                    <h3 class="font-semibold text-sm sm:text-lg text-gray-900 truncate">
                                         {job.name || 'Unnamed Job'}
                                     </h3>
-                                    <span class="text-xs px-2 py-1 rounded-full font-medium {getStateColor(job.state)}">
+                                    <span class="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-medium {getStateColor(job.state)} shrink-0">
                                         {job.state}
                                     </span>
                                 </div>
                                 
-                                <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-3">
+                                <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">
                                     <span class="flex items-center gap-1">
                                         📅 {job.schedule}
                                     </span>
@@ -164,12 +164,12 @@
                                 </div>
 
                                 {#if job.prompt}
-                                    <p class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 font-mono truncate">
+                                    <p class="text-xs sm:text-sm text-gray-600 bg-gray-50 rounded-lg p-2 sm:p-3 font-mono truncate">
                                         {job.prompt}
                                     </p>
                                 {/if}
 
-                                <div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-400">
+                                <div class="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3 text-[10px] sm:text-xs text-gray-400">
                                     {#if job.next_run}
                                         <span>Next: {job.next_run}</span>
                                     {/if}
@@ -180,14 +180,14 @@
                                         <span>Script: {job.script}</span>
                                     {/if}
                                     {#if job.no_agent}
-                                        <span class="bg-gray-100 px-2 py-0.5 rounded">no-agent</span>
+                                        <span class="bg-gray-100 px-1.5 sm:px-2 py-0.5 rounded">no-agent</span>
                                     {/if}
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="mt-3 pt-3 border-t border-gray-100">
-                            <p class="text-xs text-gray-400 font-mono truncate">ID: {job.id}</p>
+                        <div class="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-100">
+                            <p class="text-[10px] sm:text-xs text-gray-400 font-mono truncate">ID: {job.id}</p>
                         </div>
                     </div>
                 {/each}
