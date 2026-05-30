@@ -36,10 +36,20 @@ impl JwtConfig {
                 format!("dev-secret-{}", seed)
             });
 
+        let access_minutes: i64 = std::env::var("JWT_ACCESS_DURATION")
+            .unwrap_or_else(|_| "15".to_string())
+            .parse()
+            .unwrap_or(15);
+
+        let refresh_days: i64 = std::env::var("JWT_REFRESH_DURATION")
+            .unwrap_or_else(|_| "7".to_string())
+            .parse()
+            .unwrap_or(7);
+
         Self {
             secret,
-            access_duration: Duration::minutes(15),
-            refresh_duration: Duration::days(7),
+            access_duration: Duration::minutes(access_minutes),
+            refresh_duration: Duration::days(refresh_days),
         }
     }
 }
