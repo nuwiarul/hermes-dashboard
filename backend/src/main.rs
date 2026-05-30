@@ -1,4 +1,4 @@
-use axum::{routing::get, Extension, Router};
+use axum::{routing::{get, post}, Extension, Router};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -47,6 +47,8 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/api/health", get(routes::health::handler))
+        .route("/api/auth/login", post(features::auth::handler::login))
+        .route("/api/auth/logout", post(features::auth::handler::logout))
         .route("/api/sessions", get(features::sessions::handler::list))
         .route("/api/stats", get(features::stats::handler::overview))
         .route("/api/config", get(features::config::handler::get_config))
