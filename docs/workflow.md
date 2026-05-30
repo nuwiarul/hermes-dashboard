@@ -2,59 +2,41 @@
 
 ### Overview
 
-Workflow development dengan manual deploy. Developer push code ke GitHub, Dodik review & merge, lalu manual build & deploy ke server.
+Workflow development dengan **Deploy First** approach. Agent code → build → deploy ke production → tunggu instruksi Dodik → baru commit & buat PR.
+
+**Penting:** Setelah deploy, JANGAN langsung commit. Tunggu instruksi Dodik terlebih dahulu.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│  DEVELOPMENT PHASE                                          │
-│  ─────────────────                                          │
+│  WORKFLOW: Deploy First, Commit Later                       │
+│  ─────────────────────────────────────                      │
 │                                                             │
-│  1. Buat branch baru                                        │
+│  1. Code & Build                                            │
+│     ├── Write code sesuai task                              │
+│     ├── Build frontend/backend                              │
+│     └── Test locally jika perlu                             │
+│                                                             │
+│  2. Deploy ke Production                                    │
+│     ├── Deploy frontend ke Alibaba                          │
+│     ├── Deploy backend ke Tencent (jika ada perubahan)      │
+│     └── Verifikasi hasil di browser                         │
+│                                                             │
+│  3. ⏳ TUNGGU INSTRUKSI DODIK                               │
+│     └── Jangan commit sampaiDodik konfirmasi                │
+│                                                             │
+│  4. Buat Branch & Commit (setelahDodik izinkan)             │
 │     git checkout -b feat/xxx                                │
-│                                                             │
-│  2. Coding & commit                                         │
 │     git add .                                               │
 │     git commit -m "feat: add xxx"                           │
 │                                                             │
-│  3. Push ke GitHub                                          │
+│  5. Push & Create PR                                        │
 │     git push origin feat/xxx                                │
-│                                                             │
-│  4. Create Pull Request                                     │
 │     gh pr create --title "feat: xxx" --body "..."           │
 │                                                             │
-│  5. Dodik review PR di GitHub                               │
-│     ├── Request changes → back to step 2                    │
-│     └── Approved → Merge                                    │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  DEPLOY PHASE (Manual)                                      │
-│  ─────────────────────                                      │
-│                                                             │
-│  6. Pull latest code di Tencent                             │
-│     git pull origin main                                    │
-│                                                             │
-│  7. Build Backend                                           │
-│     cd backend && cargo build --release                     │
-│                                                             │
-│  8. Build Frontend                                          │
-│     cd frontend && bun run build                            │
-│                                                             │
-│  9. Deploy Frontend ke Alibaba                              │
-│     scp -r frontend/build/* alibaba:/var/www/hermes-...     │
-│                                                             │
-│  10. Restart Backend Service                                │
-│     sudo systemctl restart hermes-dashboard                 │
-│                                                             │
-│  11. Verify                                                 │
-│     curl https://hermes.vinrul.my.id                                │
-│     curl https://api-hermes.vinrul.my.id/api/health              │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  DONE ✅                                                    │
-│  Dashboard updated di https://hermes.vinrul.my.id                   │
+│  6. Dodik Review & Merge PR                                 │
+│     ├── Request changes → back to step 1                    │
+│     └── Approved → Merge → Lanjut task berikutnya           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
