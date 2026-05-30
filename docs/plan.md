@@ -40,7 +40,7 @@
 
 ### Phase 7: Responsive Design
 - [x] Task 7.1: Mobile-First Layout
-- [ ] Task 7.2: Responsive Navigation
+- [x] Task 7.2: Responsive Navigation
 - [ ] Task 7.3: Touch-Friendly Components
 - [ ] Task 7.4: Dark/Light Theme
 

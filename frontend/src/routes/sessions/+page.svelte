@@ -1,5 +1,6 @@
 <script lang="ts">
     import SessionCard from '$lib/components/SessionCard.svelte';
+    import PullToRefresh from '$lib/shared/components/PullToRefresh.svelte';
     import { onMount } from 'svelte';
     
     let sessions = $state<any[]>([]);
@@ -7,6 +8,7 @@
     let error = $state<string | null>(null);
     let search = $state('');
     let sortBy = $state<'newest' | 'oldest' | 'messages'>('newest');
+    let refreshing = $state(false);
     
     let filteredSessions = $derived(
         sessions
@@ -27,7 +29,7 @@
     let activeSessions = $derived(sessions.filter(s => !s.ended_at).length);
     let totalMessages = $derived(sessions.reduce((sum, s) => sum + (s.message_count || 0), 0));
     
-    onMount(async () => {
+    async function fetchSessions() {
         try {
             const baseUrl = import.meta.env.VITE_API_BASE_URL;
             const res = await fetch(`${baseUrl}/api/sessions`, { credentials: 'include' });
@@ -39,8 +41,16 @@
             error = 'Failed to load sessions';
         } finally {
             loading = false;
+            refreshing = false;
         }
-    });
+    }
+    
+    async function handleRefresh() {
+        refreshing = true;
+        await fetchSessions();
+    }
+    
+    onMount(fetchSessions);
 </script>
 
 <div class="max-w-7xl mx-auto">
@@ -70,6 +80,12 @@
         <!-- Error State -->
         <div class="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6 text-sm sm:text-base text-red-700">
             {error}
+            <button 
+                onclick={handleRefresh}
+                class="ml-3 px-3 py-1.5 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium min-h-[44px]"
+            >
+                Retry
+            </button>
         </div>
     {:else}
         <!-- Stats Bar -->
@@ -103,7 +119,7 @@
                             type="text" 
                             placeholder="Search sessions..."
                             bind:value={search}
-                            class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            class="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
                         />
                     </div>
                 </div>
@@ -113,7 +129,7 @@
                     <span class="text-xs sm:text-sm text-gray-500">Sort:</span>
                     <select 
                         bind:value={sortBy}
-                        class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        class="px-3 py-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[44px]"
                     >
                         <option value="newest">Newest</option>
                         <option value="oldest">Oldest</option>
@@ -123,19 +139,27 @@
             </div>
         </div>
 
-        <!-- Sessions List -->
+        <!-- Sessions List with Pull to Refresh -->
         {#if filteredSessions.length === 0}
             <div class="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm">
                 <span class="text-3xl sm:text-4xl mb-3 sm:mb-4 block">🔍</span>
                 <p class="text-gray-500 text-base sm:text-lg">No sessions found</p>
                 <p class="text-gray-400 text-xs sm:text-sm mt-1">Try adjusting your search or filters</p>
+                <button 
+                    onclick={handleRefresh}
+                    class="mt-4 px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium min-h-[44px]"
+                >
+                    Refresh
+                </button>
             </div>
         {:else}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {#each filteredSessions as session (session.id)}
-                    <SessionCard {session} />
-                {/each}
-            </div>
+            <PullToRefresh onrefresh={handleRefresh} {refreshing}>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {#each filteredSessions as session (session.id)}
+                        <SessionCard {session} />
+                    {/each}
+                </div>
+            </PullToRefresh>
         {/if}
     {/if}
 </div>
