@@ -63,8 +63,8 @@
 - [x] Task 10.4: Gateway Control — restart/status gateway
 
 ### Phase 11: Worker Management (Multi-Node)
-- [ ] Task 11.1: Worker Registration API — node register ke dashboard
-- [ ] Task 11.2: Worker Status API — heartbeat & status tracking
+- [x] Task 11.1: Worker Registration API — node register ke dashboard
+- [x] Task 11.2: Worker Status API — heartbeat & status tracking
 - [ ] Task 11.3: Worker List UI — tampilkan semua registered nodes
 - [ ] Task 11.4: Worker Config API — change model/provider dari dashboard
 - [ ] Task 11.5: Worker Config UI — dropdown model + apply button
@@ -2162,8 +2162,8 @@ cd frontend && npm test
 ```
 
 ### Phase 11: Worker Management (Multi-Node)
-- [ ] Task 11.1: Worker Registration API — node register ke dashboard
-- [ ] Task 11.2: Worker Status API — heartbeat & status tracking
+- [x] Task 11.1: Worker Registration API — node register ke dashboard
+- [x] Task 11.2: Worker Status API — heartbeat & status tracking
 - [ ] Task 11.3: Worker List UI — tampilkan semua registered nodes
 - [ ] Task 11.4: Worker Config API — change model/provider dari dashboard
 - [ ] Task 11.5: Worker Config UI — dropdown model + apply button
