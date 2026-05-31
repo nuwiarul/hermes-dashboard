@@ -62,6 +62,16 @@
 - [x] Task 10.3: Send Message — kirim pesan ke agent dari web
 - [x] Task 10.4: Gateway Control — restart/status gateway
 
+### Phase 11: Worker Management (Multi-Node)
+- [ ] Task 11.1: Worker Registration API — node register ke dashboard
+- [ ] Task 11.2: Worker Status API — heartbeat & status tracking
+- [ ] Task 11.3: Worker List UI — tampilkan semua registered nodes
+- [ ] Task 11.4: Worker Config API — change model/provider dari dashboard
+- [ ] Task 11.5: Worker Config UI — dropdown model + apply button
+- [ ] Task 11.6: Worker Task History — tampilkan task logs per node
+- [ ] Task 11.7: Real-time Status — WebSocket update status nodes
+- [ ] Task 11.8: Worker Health Check — auto-detect offline nodes
+
 ---
 
 **Architecture:** 
