@@ -23,7 +23,7 @@ pub async fn heartbeat(
     Extension(state): Extension<Arc<AppState>>,
     axum::extract::Path(id): axum::extract::Path<i64>,
     Json(payload): Json<HeartbeatRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<super::dto::HeartbeatResponse>, AppError> {
     repository::heartbeat(
         &state.dashboard_db,
         id,
@@ -36,10 +36,37 @@ pub async fn heartbeat(
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    Ok(Json(serde_json::json!({
-        "success": true,
-        "message": "Heartbeat updated"
-    })))
+    // Check if config needs to be sent to worker
+    let config_updated_at = repository::get_config_updated_at(&state.dashboard_db, id)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let mut config_to_send = None;
+    let mut config_timestamp = None;
+
+    if let Some(updated_at) = &config_updated_at {
+        // Compare with worker's last applied config
+        if payload.last_config_applied_at.as_ref() != Some(updated_at) {
+            // Config is newer, send it to worker
+            let worker = repository::find_by_id(&state.dashboard_db, id)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+
+            if let Some(w) = worker {
+                if let Ok(config_value) = serde_json::from_str::<serde_json::Value>(&w.config) {
+                    config_to_send = Some(config_value);
+                    config_timestamp = Some(updated_at.clone());
+                }
+            }
+        }
+    }
+
+    Ok(Json(super::dto::HeartbeatResponse {
+        success: true,
+        message: "Heartbeat updated".to_string(),
+        config: config_to_send,
+        config_updated_at: config_timestamp,
+    }))
 }
 
 pub async fn list_workers(

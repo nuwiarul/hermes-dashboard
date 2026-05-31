@@ -19,6 +19,15 @@ pub struct HeartbeatRequest {
     pub ram_used: Option<i64>,
     pub disk_used: Option<i64>,
     pub active_model: Option<String>,
+    pub last_config_applied_at: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HeartbeatResponse {
+    pub success: bool,
+    pub message: String,
+    pub config: Option<serde_json::Value>,
+    pub config_updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]

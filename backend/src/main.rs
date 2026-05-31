@@ -64,11 +64,17 @@ async fn main() -> anyhow::Result<()> {
             active_model TEXT,
             last_heartbeat TEXT,
             registered_at TEXT NOT NULL DEFAULT (datetime('now')),
-            config TEXT NOT NULL DEFAULT '{}'
+            config TEXT NOT NULL DEFAULT '{}',
+            config_updated_at TEXT
         )"
     )
     .execute(&dashboard_db)
     .await?;
+
+    // Add config_updated_at column if missing (for existing tables)
+    let _ = sqlx::query("ALTER TABLE workers ADD COLUMN config_updated_at TEXT")
+        .execute(&dashboard_db)
+        .await;
 
     let rate_limit_state = Arc::new(RateLimitState::new(
         rate_limit_login_max,
