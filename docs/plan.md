@@ -2150,3 +2150,125 @@ cd frontend && npm test
 │                                             │
 └─────────────────────────────────────────────┘
 ```
+
+### Phase 11: Worker Management (Multi-Node)
+- [ ] Task 11.1: Worker Registration API — node register ke dashboard
+- [ ] Task 11.2: Worker Status API — heartbeat & status tracking
+- [ ] Task 11.3: Worker List UI — tampilkan semua registered nodes
+- [ ] Task 11.4: Worker Config API — change model/provider dari dashboard
+- [ ] Task 11.5: Worker Config UI — dropdown model + apply button
+- [ ] Task 11.6: Worker Task History — tampilkan task logs per node
+- [ ] Task 11.7: Real-time Status — WebSocket update status nodes
+- [ ] Task 11.8: Worker Health Check — auto-detect offline nodes
+
+---
+
+## Phase 11: Worker Management (Multi-Node)
+
+> Goal: Dashboard sebagai central control untuk semua Hermes instances.
+> Monitor status, change config, dan manage tasks untuk multiple nodes.
+
+### Task 11.1: Worker Registration API
+
+Endpoint: POST /api/workers/register
+
+Request Body:
+- name: worker name (e.g. "windows")
+- ip: Tailscale IP (e.g. "100.82.105.93")
+- role: "orchestrator" or "worker"
+- os: "windows", "linux", "macos"
+- arch: "x86_64", "aarch64"
+- ram_total: total RAM in MB
+- disk_total: total disk in MB
+- capabilities: array of capabilities (e.g. ["rust", "bun", "codex-cli"])
+
+Database Table: workers
+- id, name, ip, role, os, arch, ram_total, disk_total
+- capabilities (JSON), status, last_heartbeat, registered_at, config (JSON)
+
+### Task 11.2: Worker Status API
+
+Endpoints:
+- POST /api/workers/:id/heartbeat — update status + metrics
+- GET /api/workers — list all workers
+- GET /api/workers/:id — get worker detail
+
+Heartbeat Data:
+- status: "online", "busy", "offline"
+- current_task: description of current task
+- ram_used: used RAM in MB
+- disk_used: used disk in MB
+- active_model: current model name
+
+### Task 11.3: Worker List UI
+
+Frontend page showing all registered nodes with:
+- Name, IP, status indicator (green/yellow/red)
+- RAM/Disk usage bars
+- Current model and role
+- Last heartbeat time
+- Action buttons: Configure, View Tasks
+
+### Task 11.4: Worker Config API
+
+Endpoint: PUT /api/workers/:id/config
+
+Request Body:
+- model: model name (e.g. "deepseek-v4")
+- provider: provider name (e.g. "deepseek")
+- max_tokens: max tokens setting
+- temperature: temperature setting
+
+Response: success status + applied timestamp
+
+### Task 11.5: Worker Config UI
+
+Frontend form for configuring a worker:
+- Model dropdown (populated from available models)
+- Provider dropdown
+- Max tokens input
+- Temperature slider
+- Apply button sends PUT to /api/workers/:id/config
+
+### Task 11.6: Worker Task History
+
+Endpoint: GET /api/workers/:id/tasks
+
+Returns list of tasks executed by the worker:
+- task_id, description, status (pending/running/completed/failed)
+- started_at, completed_at, result
+
+Frontend: table or timeline view of task history
+
+### Task 11.7: Real-time Status
+
+WebSocket endpoint: ws://api:3001/ws/workers
+
+Events emitted:
+- worker:status — status change (online/offline/busy)
+- worker:heartbeat — periodic heartbeat data
+- worker:task_update — task progress update
+
+Frontend subscribes and updates UI in real-time.
+
+### Task 11.8: Worker Health Check
+
+Logic:
+- Each worker sends heartbeat every 30 seconds
+- If no heartbeat for 2 minutes → status: offline
+- Dashboard auto-refreshes via WebSocket
+- Notification when worker goes offline
+
+Endpoint: GET /api/workers/health
+
+Returns: total_workers, online count, offline count, list of offline workers
+
+---
+
+Dependencies:
+- Phase 10 (Remote Control) — Done
+- WebSocket (Phase 4) — Done
+- JWT Auth (Phase 6) — Done
+
+Estimated Tasks: 8 tasks
+Estimated Effort: 2-3 hari
