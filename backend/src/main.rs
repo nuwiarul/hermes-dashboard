@@ -18,6 +18,7 @@ use middleware::rate_limit::RateLimitState;
 
 pub struct AppState {
     pub db: sqlx::sqlite::SqlitePool,
+    pub dashboard_db: sqlx::sqlite::SqlitePool,
     pub config: config::AppConfig,
     pub jwt: JwtConfig,
     pub cache: shared::cache::ApiCache,
@@ -31,16 +32,43 @@ async fn main() -> anyhow::Result<()> {
     let app_config = config::AppConfig::from_env();
     let jwt_config = JwtConfig::from_env();
     let db_pool = db::connect(&app_config.state_db_path()).await?;
+    let dashboard_db = db::connect_rw(&app_config.dashboard_db_path()).await?;
     let port = app_config.port;
     let rate_limit_login_max = app_config.rate_limit_login_max;
     let rate_limit_api_max = app_config.rate_limit_api_max;
 
     let state = Arc::new(AppState {
         db: db_pool,
+        dashboard_db: dashboard_db.clone(),
         config: app_config,
         jwt: jwt_config,
         cache: shared::cache::ApiCache::new(),
     });
+
+    // Run dashboard DB migrations
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS workers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'worker',
+            os TEXT NOT NULL,
+            arch TEXT NOT NULL,
+            ram_total INTEGER NOT NULL DEFAULT 0,
+            disk_total INTEGER NOT NULL DEFAULT 0,
+            capabilities TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'offline',
+            current_task TEXT,
+            ram_used INTEGER NOT NULL DEFAULT 0,
+            disk_used INTEGER NOT NULL DEFAULT 0,
+            active_model TEXT,
+            last_heartbeat TEXT,
+            registered_at TEXT NOT NULL DEFAULT (datetime('now')),
+            config TEXT NOT NULL DEFAULT '{}'
+        )"
+    )
+    .execute(&dashboard_db)
+    .await?;
 
     let rate_limit_state = Arc::new(RateLimitState::new(
         rate_limit_login_max,
@@ -77,6 +105,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/auth/logout", post(features::auth::handler::logout))
         .route("/api/auth/refresh", post(features::auth::handler::refresh))
         .route("/api/auth/me", get(features::auth::handler::me))
+        // Worker registration & heartbeat (no auth - workers register themselves)
+        .route("/api/workers/register", post(features::workers::handler::register))
+        .route("/api/workers/{id}/heartbeat", post(features::workers::handler::heartbeat))
         .layer(axum::middleware::from_fn_with_state(
             rate_limit_state.clone(),
             middleware::rate_limit::rate_limit_login,
@@ -120,6 +151,9 @@ async fn main() -> anyhow::Result<()> {
             "/api/tools/gateway/restart",
             post(features::tools::handler::restart_gateway),
         )
+        // Worker management (protected - dashboard view)
+        .route("/api/workers", get(features::workers::handler::list_workers))
+        .route("/api/workers/{id}", get(features::workers::handler::get_worker))
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(

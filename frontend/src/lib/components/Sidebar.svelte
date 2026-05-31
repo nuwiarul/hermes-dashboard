@@ -5,6 +5,7 @@
     const navItems = [
         { href: '/', label: 'Dashboard', icon: '📊' },
         { href: '/sessions', label: 'Sessions', icon: '💬' },
+        { href: '/workers', label: 'Workers', icon: '🖥️' },
         { href: '/cron', label: 'Cron Jobs', icon: '⏰' },
         { href: '/tools', label: 'Tools', icon: '🔧' },
         { href: '/settings', label: 'Settings', icon: '⚙️' },

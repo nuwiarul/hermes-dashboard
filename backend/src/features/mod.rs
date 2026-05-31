@@ -4,3 +4,4 @@ pub mod cron;
 pub mod sessions;
 pub mod stats;
 pub mod tools;
+pub mod workers;

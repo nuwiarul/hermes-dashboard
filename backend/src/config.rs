@@ -59,6 +59,10 @@ impl AppConfig {
     pub fn logs_path(&self) -> PathBuf {
         self.hermes_home.join("logs")
     }
+
+    pub fn dashboard_db_path(&self) -> PathBuf {
+        self.hermes_home.join("dashboard.db")
+    }
 }
 
 #[cfg(test)]
