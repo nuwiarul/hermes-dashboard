@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post},
+    routing::{get, post, put},
     Extension, Router,
 };
 use std::net::SocketAddr;
@@ -154,6 +154,7 @@ async fn main() -> anyhow::Result<()> {
         // Worker management (protected - dashboard view)
         .route("/api/workers", get(features::workers::handler::list_workers))
         .route("/api/workers/{id}", get(features::workers::handler::get_worker))
+        .route("/api/workers/{id}/config", put(features::workers::handler::update_config))
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(

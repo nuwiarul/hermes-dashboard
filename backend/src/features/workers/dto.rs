@@ -54,3 +54,18 @@ pub struct RegisterWorkerResponse {
     pub name: String,
     pub message: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerConfigRequest {
+    pub model: Option<String>,
+    pub provider: Option<String>,
+    pub max_tokens: Option<i64>,
+    pub temperature: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WorkerConfigResponse {
+    pub success: bool,
+    pub message: String,
+    pub applied_at: String,
+}

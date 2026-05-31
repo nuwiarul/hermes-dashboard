@@ -63,3 +63,34 @@ pub async fn get_worker(
 
     Ok(Json(worker))
 }
+
+pub async fn update_config(
+    Extension(state): Extension<Arc<AppState>>,
+    axum::extract::Path(id): axum::extract::Path<i64>,
+    Json(payload): Json<super::dto::WorkerConfigRequest>,
+) -> Result<Json<super::dto::WorkerConfigResponse>, AppError> {
+    // Check if worker exists
+    let worker = repository::find_by_id(&state.dashboard_db, id).await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or(AppError::NotFound)?;
+
+    // Update config
+    repository::update_config(
+        &state.dashboard_db,
+        id,
+        payload.model.as_deref(),
+        payload.provider.as_deref(),
+        payload.max_tokens,
+        payload.temperature,
+    )
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+    Ok(Json(super::dto::WorkerConfigResponse {
+        success: true,
+        message: format!("Configuration updated for worker '{}'", worker.name),
+        applied_at: now,
+    }))
+}
