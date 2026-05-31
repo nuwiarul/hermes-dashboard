@@ -126,3 +126,62 @@ pub async fn count_all(db: &SqlitePool) -> Result<i64, sqlx::Error> {
 
     Ok(row.0)
 }
+
+pub async fn update_config(
+    db: &SqlitePool,
+    worker_id: i64,
+    model: Option<&str>,
+    provider: Option<&str>,
+    max_tokens: Option<i64>,
+    temperature: Option<f64>,
+) -> Result<String, sqlx::Error> {
+    // Get current config
+    let row: (String,) = sqlx::query_as("SELECT config FROM workers WHERE id = ?")
+        .bind(worker_id)
+        .fetch_one(db)
+        .await?;
+
+    // Parse existing config
+    let mut config: serde_json::Value = serde_json::from_str(&row.0)
+        .unwrap_or(serde_json::json!({}));
+
+    // Update config fields
+    if let Some(m) = model {
+        config["model"] = serde_json::json!(m);
+    }
+    if let Some(p) = provider {
+        config["provider"] = serde_json::json!(p);
+    }
+    if let Some(mt) = max_tokens {
+        config["max_tokens"] = serde_json::json!(mt);
+    }
+    if let Some(t) = temperature {
+        config["temperature"] = serde_json::json!(t);
+    }
+
+    // Save updated config with timestamp
+    let config_str = serde_json::to_string(&config).unwrap_or_else(|_| "{}".to_string());
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    sqlx::query("UPDATE workers SET config = ?, config_updated_at = ? WHERE id = ?")
+        .bind(&config_str)
+        .bind(&now)
+        .bind(worker_id)
+        .execute(db)
+        .await?;
+
+    Ok(now)
+}
+
+pub async fn get_config_updated_at(
+    db: &SqlitePool,
+    worker_id: i64,
+) -> Result<Option<String>, sqlx::Error> {
+    let row: (Option<String>,) = sqlx::query_as(
+        "SELECT config_updated_at FROM workers WHERE id = ?"
+    )
+    .bind(worker_id)
+    .fetch_one(db)
+    .await?;
+
+    Ok(row.0)
+}

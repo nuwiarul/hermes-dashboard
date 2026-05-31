@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post},
+    routing::{get, post, put},
     Extension, Router,
 };
 use std::net::SocketAddr;
@@ -64,11 +64,17 @@ async fn main() -> anyhow::Result<()> {
             active_model TEXT,
             last_heartbeat TEXT,
             registered_at TEXT NOT NULL DEFAULT (datetime('now')),
-            config TEXT NOT NULL DEFAULT '{}'
+            config TEXT NOT NULL DEFAULT '{}',
+            config_updated_at TEXT
         )"
     )
     .execute(&dashboard_db)
     .await?;
+
+    // Add config_updated_at column if missing (for existing tables)
+    let _ = sqlx::query("ALTER TABLE workers ADD COLUMN config_updated_at TEXT")
+        .execute(&dashboard_db)
+        .await;
 
     let rate_limit_state = Arc::new(RateLimitState::new(
         rate_limit_login_max,
@@ -154,6 +160,7 @@ async fn main() -> anyhow::Result<()> {
         // Worker management (protected - dashboard view)
         .route("/api/workers", get(features::workers::handler::list_workers))
         .route("/api/workers/{id}", get(features::workers::handler::get_worker))
+        .route("/api/workers/{id}/config", put(features::workers::handler::update_config))
         .route("/ws", get(routes::ws::ws_handler))
         .layer(axum::middleware::from_fn(middleware::auth::require_auth))
         .layer(axum::middleware::from_fn_with_state(
